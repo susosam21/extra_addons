@@ -258,7 +258,7 @@ class HrLeaveAllocation(models.Model):
                 'is_auto_allocated': True,
                 'date_from': validity_start,
                 'date_to': validity_end,
-                'allocation_type': 'regular',
+                'allocation_type': 'accrual',
             })
             
             # Automatically validate the allocation
@@ -334,7 +334,7 @@ class HrLeaveAllocation(models.Model):
                 'is_auto_allocated': True,
                 'date_from': validity_start,
                 'date_to': validity_end,
-                'allocation_type': 'regular',
+                'allocation_type': 'accrual',
             })
             
             # Automatically validate the allocation
