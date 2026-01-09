@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Attendance Tree View with working_type -->
+    <record id="view_attendance_tree_inherit" model="ir.ui.view">
+        <field name="name">hr.attendance.tree.inherit</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.view_attendance_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="working_type" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Attendance Form View with working_type -->
+    <record id="view_attendance_form_inherit" model="ir.ui.view">
+        <field name="name">hr.attendance.form.inherit</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.hr_attendance_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="working_type"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Attendance Kanban View with working_type -->
+    <record id="view_attendance_kanban_inherit" model="ir.ui.view">
+        <field name="name">hr.attendance.kanban.inherit</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.view_attendance_kanban"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="working_type"/>
+            </xpath>
+            <xpath expr="//div[@class='row']" position="inside">
+                <div class="col-12">
+                    <span class="badge badge-pill">
+                        <field name="working_type"/>
+                    </span>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
