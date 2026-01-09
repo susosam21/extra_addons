@@ -8,6 +8,15 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
+class HrLeaveType(models.Model):
+    _inherit = 'hr.leave.type'
+
+    code = fields.Char(
+        string='Code',
+        help='Unique code to identify the leave type (e.g., ANNUAL, SICK, HOLIDAY)'
+    )
+
+
 class HrLeave(models.Model):
     _inherit = 'hr.leave'
 
