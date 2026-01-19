@@ -28,6 +28,7 @@
     'data': [
         'security/ir.model.access.csv',
         'views/hr_attendance_views.xml',
+        'views/hr_contract_views.xml',
         'data/ir_cron_data.xml',
     ],
     'installable': True,

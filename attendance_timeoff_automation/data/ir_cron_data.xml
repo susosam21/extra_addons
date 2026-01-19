@@ -29,9 +29,9 @@
             <field name="nextcall" eval="(DateTime.now() + relativedelta(day=1)).strftime('%Y-%m-%d 00:30:00')"/>
         </record>
 
-        <!-- Cron Job to Auto Allocate Leaves Monthly -->
+        <!-- Cron Job to Auto Allocate Annual Leaves Monthly -->
         <record id="ir_cron_auto_allocate_leaves" model="ir.cron">
-            <field name="name">Auto Allocate Employee Leaves</field>
+            <field name="name">Auto Allocate Annual Leaves</field>
             <field name="model_id" ref="hr_holidays.model_hr_leave_allocation"/>
             <field name="state">code</field>
             <field name="code">model._auto_allocate_leaves()</field>
@@ -41,6 +41,20 @@
             <field name="doall" eval="False"/>
             <field name="active" eval="True"/>
             <field name="nextcall" eval="(DateTime.now() + relativedelta(day=1)).strftime('%Y-%m-%d 01:00:00')"/>
+        </record>
+
+        <!-- Cron Job to Auto Allocate Sick Leaves Yearly -->
+        <record id="ir_cron_auto_allocate_sick_leaves" model="ir.cron">
+            <field name="name">Auto Allocate Sick Leaves</field>
+            <field name="model_id" ref="hr_holidays.model_hr_leave_allocation"/>
+            <field name="state">code</field>
+            <field name="code">model._auto_allocate_sick_leaves()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">months</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="nextcall" eval="(DateTime.now() + relativedelta(day=1)).strftime('%Y-%m-%d 01:30:00')"/>
         </record>
     </data>
 </odoo>

@@ -24,7 +24,7 @@ class HrLeave(models.Model):
     def _check_probation_period(self):
         """
         Prevent employees from taking leave during probation period.
-        Probation period is the first year from joining date.
+        Probation period is based on the contract's probation_period_months field.
         """
         for leave in self:
             if not leave.employee_id or not leave.date_from:
@@ -39,9 +39,12 @@ class HrLeave(models.Model):
             if not contract:
                 continue
             
-            # Calculate one year from joining date
+            # Get probation period in months from contract (default to 6 if not set)
+            probation_months = contract.probation_period_months if contract.probation_period_months else 6
+            
+            # Calculate probation end date from joining date
             joining_date = contract.date_start
-            probation_end_date = joining_date + relativedelta(years=1)
+            probation_end_date = joining_date + relativedelta(months=probation_months)
             
             # Get leave request date
             leave_date = leave.date_from.date() if isinstance(leave.date_from, datetime) else leave.date_from
@@ -77,11 +80,8 @@ class HrLeaveAllocation(models.Model):
             leave_type = self.env['hr.leave.type'].create({
                 'name': 'Annual Leave',
                 'code': 'ANNUAL',
-                'allocation_type': 'fixed_allocation',
-                'validity_start': False,
                 'requires_allocation': 'yes',
                 'employee_requests': 'yes',
-                'approval_required': True,
                 'color': 5,  # Purple color
             })
             _logger.info(f"Created Annual Leave type: {leave_type.id}")
@@ -102,11 +102,8 @@ class HrLeaveAllocation(models.Model):
             leave_type = self.env['hr.leave.type'].create({
                 'name': 'Sick Leave',
                 'code': 'SICK',
-                'allocation_type': 'fixed_allocation',
-                'validity_start': False,
                 'requires_allocation': 'yes',
                 'employee_requests': 'yes',
-                'approval_required': True,
                 'color': 1,  # Red color
             })
             _logger.info(f"Created Sick Leave type: {leave_type.id}")
@@ -127,11 +124,8 @@ class HrLeaveAllocation(models.Model):
             leave_type = self.env['hr.leave.type'].create({
                 'name': 'Unpaid Leave',
                 'code': 'UNPAID',
-                'allocation_type': 'no',
-                'validity_start': False,
                 'requires_allocation': 'no',
                 'employee_requests': 'yes',
-                'approval_required': True,
                 'unpaid': True,
                 'color': 3,  # Gray color
             })
@@ -139,140 +133,236 @@ class HrLeaveAllocation(models.Model):
         
         return leave_type
 
-    @api.model
-    def _get_or_create_public_holiday_type(self):
-        """
-        Get or create the Public Holiday type.
-        Uses code 'HOLIDAY' for unique identification.
-        """
-        leave_type = self.env['hr.leave.type'].search([
-            ('code', '=', 'HOLIDAY'),
-        ], limit=1)
+    # @api.model
+    # def _get_or_create_public_holiday_type(self):
+    #     """
+    #     Get or create the Public Holiday type.
+    #     Uses code 'HOLIDAY' for unique identification.
+    #     """
+    #     leave_type = self.env['hr.leave.type'].search([
+    #         ('code', '=', 'HOLIDAY'),
+    #     ], limit=1)
         
-        if not leave_type:
-            leave_type = self.env['hr.leave.type'].create({
-                'name': 'Public Holiday',
-                'code': 'HOLIDAY',
-                'allocation_type': 'no',
-                'validity_start': False,
-                'requires_allocation': 'no',
-                'employee_requests': 'no',
-                'approval_required': False,
-                'color': 4,  # Yellow color
-            })
-            _logger.info(f"Created Public Holiday type: {leave_type.id}")
+    #     if not leave_type:
+    #         leave_type = self.env['hr.leave.type'].create({
+    #             'name': 'Public Holiday',
+    #             'code': 'HOLIDAY',
+    #             'requires_allocation': 'no',
+    #             'employee_requests': 'no',
+    #             'color': 4,  # Yellow color
+    #         })
+    #         _logger.info(f"Created Public Holiday type: {leave_type.id}")
         
-        return leave_type
+    #     return leave_type
 
     @api.model
     def _allocate_leaves_for_employee(self, employee, contract):
         """
-        Allocate leaves for a single employee based on their contract and tenure.
+        Allocate monthly annual leaves for a single employee based on their contract.
+        Allocates for all missing months from contract year start to current month.
         
-        Rules:
-        - First 11 months (probation): 2 days per month (total 22 days over 11 months)
-        - At 1 year completion: Additional 8 days (total becomes 30 days)
-        - After 1 year: 2.5 days per month
-        - Leaves valid for 1 year only
+        Probation Period (New Contracts from 2024 onwards):
+        - Allocations start from joining date
+        - For allocations during probation: validity starts from probation end date
+        - For allocations after probation: validity starts from allocation date
+        
+        First Contract Year:
+        - First 11 allocations: 2 days each (22 days total)
+        - 12th allocation: 8 days (balance to reach 30 days)
+        - Total: 30 days
+        
+        Subsequent Years (Year 2 onwards):
+        - 2.5 days per month
+        - Maximum 30 days per year (2.5 × 12 = 30)
+        
+        Validity: 1 year from validity start date
         """
         today = fields.Date.today()
-        joining_date = contract.date_start
         
-        # Calculate months since joining
-        months_since_joining = relativedelta(today, joining_date).months + \
-                             (relativedelta(today, joining_date).years * 12)
+        # Get the FIRST contract (original joining date) for the employee
+        first_contract = self.env['hr.contract'].search([
+            ('employee_id', '=', employee.id),
+        ], order='date_start asc', limit=1)
+        
+        if not first_contract:
+            _logger.debug(f"No contract found for employee {employee.name}")
+            return 0
+        
+        # Use the original joining date from the first contract
+        joining_date = first_contract.date_start
+        
+        # Determine contract type based on ORIGINAL joining date (new contracts from 2024-01-01 onwards)
+        cutoff_date = fields.Date.from_string('2024-01-01')
+        is_new_contract = joining_date >= cutoff_date
+        
+        # Get probation period for validity date calculation
+        probation_months = first_contract.probation_period_months if first_contract.probation_period_months else 6
+        probation_end_date = joining_date + relativedelta(months=probation_months)
+        
+        # Allocation starts from joining date for all contracts
+        allocation_start_date = joining_date
         
         # Get annual leave type
         leave_type = self._get_or_create_annual_leave_type()
         
-        # Define allocation validity period (1 year)
-        validity_start = today
-        validity_end = today + relativedelta(years=1)
+        # Get ALL existing auto-allocated annual leave for this employee
+        existing_allocations = self.search([
+            ('employee_id', '=', employee.id),
+            ('holiday_status_id', '=', leave_type.id),
+            ('is_auto_allocated', '=', True),
+            ('state', '=', 'validate'),
+        ])
         
-        # Check if employee completed 1 year
-        one_year_date = joining_date + relativedelta(years=1)
-        has_completed_one_year = today >= one_year_date
+        # Get list of months already allocated using date_from (not create_date)
+        allocated_months = set()
+        for alloc in existing_allocations:
+            if alloc.date_from:
+                month_key = alloc.date_from.strftime('%Y-%m-%d')  # Full date for precise matching
+                allocated_months.add(month_key)
         
-        if not has_completed_one_year:
-            # Employee is in first year (probation period)
-            # Allocate 2 days per month for months completed
+        total_days_allocated = 0
+        contract_type = "New" if is_new_contract else "Old"
+        
+        # Get the day of month from ORIGINAL joining date (to maintain consistent day each month)
+        allocation_day = joining_date.day
+        
+        # Calculate all months from allocation start date to today
+        current_date = allocation_start_date
+        
+        # Track allocations per year (to handle cumulative totals within the current run)
+        year_totals = {}  # {year_index: cumulative_days_allocated_in_this_run}
+        
+        # Loop through ALL months from allocation start date to today
+        while current_date <= today:
+            # Adjust to the same day as joining date, handling month-end cases
+            try:
+                month_allocation_date = current_date.replace(day=allocation_day)
+            except ValueError:
+                # Handle case where day doesn't exist in month (e.g., Feb 31)
+                # Use last day of the month instead
+                month_allocation_date = current_date + relativedelta(day=31)
             
-            # Don't allocate for the first month (month 0)
-            if months_since_joining < 1:
-                _logger.debug(f"Employee {employee.name} is in first month, no allocation yet")
-                return 0
+            # Create unique key for this specific allocation date
+            allocation_date_key = month_allocation_date.strftime('%Y-%m-%d')
             
-            # Check last allocation date to avoid duplicate monthly allocations
-            last_allocation = self.search([
-                ('employee_id', '=', employee.id),
-                ('holiday_status_id', '=', leave_type.id),
-                ('is_auto_allocated', '=', True),
-                ('state', '=', 'validate'),
-            ], order='date_from desc', limit=1)
+            # Skip if already allocated for this exact date
+            if allocation_date_key in allocated_months:
+                current_date = current_date + relativedelta(months=1)
+                continue
             
-            # Calculate days to allocate this month
-            days_to_allocate = 2.0
+            # Calculate which contract year and month we're in (based on JOINING DATE, not allocation start)
+            years_from_joining = relativedelta(month_allocation_date, joining_date).years
+            year_start = joining_date + relativedelta(years=years_from_joining)
+            year_end = joining_date + relativedelta(years=years_from_joining + 1)
             
-            # Check if we already allocated this month
-            if last_allocation:
-                last_alloc_date = last_allocation.date_from
-                current_month_start = today.replace(day=1)
+            # Calculate month in year based on joining date anniversary
+            month_in_year = relativedelta(month_allocation_date, year_start).months + 1
+            
+            # Check total allocated in this contract year (existing + current run)
+            year_allocations = [a for a in existing_allocations 
+                               if a.date_from >= year_start and a.date_from < year_end]
+            total_this_year_existing = sum(a.number_of_days for a in year_allocations)
+            total_this_year_current_run = year_totals.get(years_from_joining, 0)
+            total_this_year = total_this_year_existing + total_this_year_current_run
+            
+            # Count how many allocations have been made in this contract year
+            allocations_count_this_year = len(year_allocations)
+            if years_from_joining in year_totals:
+                # Count allocations in current run for this year
+                allocations_count_this_year += sum(1 for _ in range(len(year_allocations), len(year_allocations) + int(total_this_year_current_run / 2)))
+            
+            # Skip if already reached 30 days in this year
+            if total_this_year >= 30.0:
+                current_date = current_date + relativedelta(months=1)
+                continue
+            
+            # Determine if this is the first year of contract (based on joining date)
+            is_first_year = (years_from_joining == 0)
+            
+            if is_first_year:
+                # First year logic: 2 days for first 11 allocations, then balance to 30
+                if allocations_count_this_year < 11:
+                    days_to_allocate = 2.0
+                else:  # 12th allocation and beyond
+                    # Add remaining to reach 30 days total in first year
+                    days_to_allocate = 30.0 - total_this_year
+                    _logger.info(
+                        f"Employee {employee.name} reached allocation #{allocations_count_this_year + 1} in first year, "
+                        f"allocating {days_to_allocate} days to reach 30 total"
+                    )
                 
-                if last_alloc_date >= current_month_start:
-                    _logger.debug(f"Employee {employee.name} already has allocation for this month")
-                    return 0
+                # Ensure we don't exceed 30 days per year
+                if total_this_year + days_to_allocate > 30.0:
+                    days_to_allocate = 30.0 - total_this_year
+            else:
+                # Subsequent years (Year 2+): Standard 2.5 days per month
+                days_to_allocate = 2.5
+                
+                # Ensure we don't exceed 30 days per year
+                if total_this_year + days_to_allocate > 30.0:
+                    days_to_allocate = 30.0 - total_this_year
             
-            # Special case: At exactly 1 year, give 8 extra days
-            if months_since_joining == 12:
-                days_to_allocate = 8.0
-                _logger.info(f"Employee {employee.name} completed 1 year, allocating 8 bonus days")
+            # Skip if no days to allocate
+            if days_to_allocate <= 0:
+                current_date = current_date + relativedelta(months=1)
+                continue
             
-        else:
-            # Employee has completed more than 1 year
-            # Allocate 2.5 days per month
+            # Define allocation validity period
+            # If allocation is during probation, validity starts from probation end date
+            # Otherwise, validity starts from allocation date
+            if is_new_contract and month_allocation_date < probation_end_date:
+                validity_start = probation_end_date
+            else:
+                validity_start = month_allocation_date
             
-            # Check if already allocated this month
-            current_month_start = today.replace(day=1)
-            existing_allocation = self.search([
-                ('employee_id', '=', employee.id),
-                ('holiday_status_id', '=', leave_type.id),
-                ('is_auto_allocated', '=', True),
-                ('date_from', '>=', current_month_start),
-                ('state', '=', 'validate'),
-            ], limit=1)
+            validity_end = validity_start + relativedelta(years=1)
             
-            if existing_allocation:
-                _logger.debug(f"Employee {employee.name} already has allocation for this month")
-                return 0
+            # Create the monthly allocation
+            try:
+                allocation = self.create({
+                    'name': f'Annual Leave - {month_allocation_date.strftime("%B %Y")} ({contract_type} Contract)',
+                    'holiday_status_id': leave_type.id,
+                    'employee_id': employee.id,
+                    'number_of_days': days_to_allocate,
+                    'state': 'confirm',
+                    'is_auto_allocated': True,
+                    'date_from': validity_start,
+                    'date_to': validity_end,
+                    'allocation_type': 'regular',
+                })
+                
+                # Automatically validate the allocation
+                allocation.action_validate()
+                
+                total_days_allocated += days_to_allocate
+                
+                # Track cumulative total for this year in current run
+                if years_from_joining not in year_totals:
+                    year_totals[years_from_joining] = 0
+                year_totals[years_from_joining] += days_to_allocate
+                
+                year_info = f"Year {years_from_joining + 1}"
+                if is_first_year:
+                    year_info += f", Allocation #{allocations_count_this_year + 1}"
+                
+                _logger.info(
+                    f"Allocated {days_to_allocate} annual leave days to {employee.name} "
+                    f"for {month_allocation_date.strftime('%B %Y')} ({contract_type} contract, "
+                    f"{year_info}, Contract Month {month_in_year}, "
+                    f"Valid: {validity_start} to {validity_end}, "
+                    f"Total this year: {total_this_year_existing + year_totals[years_from_joining]}/30)"
+                )
+                
+                # Add to allocated_months set to avoid duplicates in this run
+                allocated_months.add(allocation_date_key)
+                
+            except Exception as e:
+                _logger.error(f"Failed to allocate leaves for {employee.name} for {month_allocation_date}: {str(e)}")
             
-            days_to_allocate = 2.5
+            # Move to next month
+            current_date = current_date + relativedelta(months=1)
         
-        # Create the allocation
-        try:
-            allocation = self.create({
-                'name': f'Auto Allocation - {today.strftime("%B %Y")}',
-                'holiday_status_id': leave_type.id,
-                'employee_id': employee.id,
-                'number_of_days': days_to_allocate,
-                'state': 'confirm',
-                'is_auto_allocated': True,
-                'date_from': validity_start,
-                'date_to': validity_end,
-                'allocation_type': 'accrual',
-            })
-            
-            # Automatically validate the allocation
-            allocation.action_validate()
-            
-            _logger.info(
-                f"Allocated {days_to_allocate} days to {employee.name} "
-                f"(Months since joining: {months_since_joining})"
-            )
-            return days_to_allocate
-            
-        except Exception as e:
-            _logger.error(f"Failed to allocate leaves for {employee.name}: {str(e)}")
-            return 0
+        return total_days_allocated
 
     @api.model
     def _allocate_sick_leave_for_employee(self, employee, contract):
@@ -280,46 +370,63 @@ class HrLeaveAllocation(models.Model):
         Allocate sick leaves for a single employee.
         
         Rules:
-        - 15 days per contract year
-        - No carry over (expires after 1 year)
-        - Only eligible after probation period (1 year from joining)
+        - 15 days per contract year (based on joining date anniversary)
+        - Validity period: From contract year start to contract year end
+        - No carry over (expires at end of contract year)
+        - Only eligible after probation period (based on contract, max 6 months)
         - Allocated once per contract year
+        - Continues until contract ends or employee is no longer active
         """
         today = fields.Date.today()
         joining_date = contract.date_start
         
-        # Calculate if employee has completed probation period (1 year)
-        one_year_date = joining_date + relativedelta(years=1)
-        has_completed_probation = today >= one_year_date
+        # Get probation period from contract (default to 6 months if not set)
+        probation_months = contract.probation_period_months if contract.probation_period_months else 6
+        
+        # Calculate if employee has completed probation period
+        probation_end_date = joining_date + relativedelta(months=probation_months)
+        has_completed_probation = today >= probation_end_date
         
         if not has_completed_probation:
-            _logger.debug(f"Employee {employee.name} still in probation, no sick leave allocation")
+            _logger.debug(f"Employee {employee.name} still in probation ({probation_months} months), no sick leave allocation")
             return 0
         
         # Get sick leave type
         leave_type = self._get_or_create_sick_leave_type()
         
-        # Calculate current contract year start date
-        # Contract year starts from joining date anniversary
+        # Calculate current contract year based on joining date anniversary
         years_since_joining = relativedelta(today, joining_date).years
         current_contract_year_start = joining_date + relativedelta(years=years_since_joining)
+        current_contract_year_end = joining_date + relativedelta(years=years_since_joining + 1)
         
-        # Check if sick leave already allocated for current contract year
+        # Check if allocation already exists for current contract year
         existing_allocation = self.search([
             ('employee_id', '=', employee.id),
             ('holiday_status_id', '=', leave_type.id),
             ('is_auto_allocated', '=', True),
-            ('date_from', '>=', current_contract_year_start),
             ('state', '=', 'validate'),
+            ('date_from', '>=', current_contract_year_start),
+            ('date_from', '<', current_contract_year_end),
         ], limit=1)
         
         if existing_allocation:
-            _logger.debug(f"Employee {employee.name} already has sick leave allocation for current contract year")
+            _logger.debug(
+                f"Employee {employee.name} already has sick leave allocation for "
+                f"contract year {years_since_joining + 1} ({current_contract_year_start} to {current_contract_year_end})"
+            )
             return 0
         
-        # Define allocation validity period (1 year from today, no carry over)
-        validity_start = today
-        validity_end = today + relativedelta(years=1)
+        # Define allocation validity period (contract year based)
+        validity_start = current_contract_year_start
+        validity_end = current_contract_year_end
+        
+        # If contract has an end date and it's before the contract year end, use contract end date
+        if contract.date_end and contract.date_end < validity_end:
+            validity_end = contract.date_end
+            _logger.info(
+                f"Contract for {employee.name} ends on {contract.date_end}, "
+                f"adjusting sick leave validity to contract end date"
+            )
         
         # Allocate 15 days
         days_to_allocate = 15.0
@@ -334,7 +441,7 @@ class HrLeaveAllocation(models.Model):
                 'is_auto_allocated': True,
                 'date_from': validity_start,
                 'date_to': validity_end,
-                'allocation_type': 'accrual',
+                'allocation_type': 'regular',
             })
             
             # Automatically validate the allocation
@@ -342,7 +449,8 @@ class HrLeaveAllocation(models.Model):
             
             _logger.info(
                 f"Allocated {days_to_allocate} sick leave days to {employee.name} "
-                f"(Contract year: {years_since_joining + 1})"
+                f"for contract year {years_since_joining + 1} "
+                f"(Valid: {validity_start} to {validity_end})"
             )
             return days_to_allocate
             
@@ -353,18 +461,18 @@ class HrLeaveAllocation(models.Model):
     @api.model
     def _auto_allocate_leaves(self):
         """
-        Cron job method to automatically allocate leaves to employees
-        based on their contract and tenure.
+        Cron job method to automatically allocate monthly annual leaves to employees.
+        
+        First Year: 2 days for first 11 allocations, then balance to 30 on 12th allocation
+        Subsequent Years: 2.5 days per month
+        Maximum: 30 days per contract year
         """
         _logger.info("=" * 80)
-        _logger.info("Starting automatic leave allocation process...")
+        _logger.info("Starting automatic monthly annual leave allocation process...")
         _logger.info("=" * 80)
         
-        # Ensure all leave types are created
+        # Ensure annual leave type is created
         self._get_or_create_annual_leave_type()
-        self._get_or_create_sick_leave_type()
-        self._get_or_create_unpaid_leave_type()
-        self._get_or_create_public_holiday_type()
         
         today = fields.Date.today()
         
@@ -377,8 +485,7 @@ class HrLeaveAllocation(models.Model):
             ('date_end', '>=', today),
         ])
         
-        total_allocated_annual = 0
-        total_allocated_sick = 0
+        total_allocated = 0
         employee_count = 0
         
         for contract in contracts:
@@ -387,22 +494,67 @@ class HrLeaveAllocation(models.Model):
             if not employee or not employee.active:
                 continue
             
-            # Allocate annual leave (monthly)
-            days_allocated_annual = self._allocate_leaves_for_employee(employee, contract)
+            # Allocate monthly annual leave
+            days_allocated = self._allocate_leaves_for_employee(employee, contract)
             
-            # Allocate sick leave (yearly after probation)
-            days_allocated_sick = self._allocate_sick_leave_for_employee(employee, contract)
-            
-            if days_allocated_annual > 0 or days_allocated_sick > 0:
-                total_allocated_annual += days_allocated_annual
-                total_allocated_sick += days_allocated_sick
+            if days_allocated > 0:
+                total_allocated += days_allocated
                 employee_count += 1
         
         _logger.info("=" * 80)
         _logger.info(
-            f"Leave allocation completed. "
-            f"Annual: {total_allocated_annual} days, Sick: {total_allocated_sick} days "
-            f"to {employee_count} employees"
+            f"Annual leave allocation completed. "
+            f"Total: {total_allocated} days allocated to {employee_count} employees"
+        )
+        _logger.info("=" * 80)
+        
+        return True
+
+    @api.model
+    def _auto_allocate_sick_leaves(self):
+        """
+        Cron job method to automatically allocate sick leaves to employees
+        based on their contract and tenure.
+        Separate from annual leave allocation to allow independent scheduling.
+        """
+        _logger.info("=" * 80)
+        _logger.info("Starting automatic sick leave allocation process...")
+        _logger.info("=" * 80)
+        
+        # Ensure sick leave type is created
+        self._get_or_create_sick_leave_type()
+        
+        today = fields.Date.today()
+        
+        # Find all active employees with active contracts
+        contracts = self.env['hr.contract'].search([
+            ('state', '=', 'open'),
+            ('date_start', '<=', today),
+            '|',
+            ('date_end', '=', False),
+            ('date_end', '>=', today),
+        ])
+        
+        total_allocated = 0
+        employee_count = 0
+        
+        for contract in contracts:
+            employee = contract.employee_id
+            
+            if not employee or not employee.active:
+                continue
+            
+            # Allocate sick leave (yearly after probation)
+            days_allocated = self._allocate_sick_leave_for_employee(employee, contract)
+            
+            if days_allocated > 0:
+                total_allocated += days_allocated
+                employee_count += 1
+        
+        _logger.info("=" * 80)
+        _logger.info(
+            f"Sick leave allocation completed. "
+            f"Total: {total_allocated} days allocated to {employee_count} employees"
         )
         _logger.info("=" * 80)
         
