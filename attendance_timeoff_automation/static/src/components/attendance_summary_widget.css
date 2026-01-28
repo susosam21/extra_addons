@@ -1,0 +1,89 @@
+.o_attendance_summary_widget {
+    padding: 15px;
+}
+
+.o_attendance_summary_widget .card {
+    border: 1px solid #dee2e6;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.o_attendance_summary_widget .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem;
+}
+
+.o_attendance_summary_widget .card-header h5 {
+    color: #495057;
+    font-weight: 600;
+}
+
+.o_attendance_summary_widget .table {
+    margin-bottom: 0;
+}
+
+.o_attendance_summary_widget .table thead th {
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.o_attendance_summary_widget .progress {
+    background-color: #e9ecef;
+}
+
+.o_attendance_summary_widget .progress-bar {
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: width 0.6s ease;
+}
+
+.o_attendance_summary_widget .bg-success {
+    background-color: #28a745 !important;
+}
+
+.o_attendance_summary_widget .bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.o_attendance_summary_widget .bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.o_attendance_summary_widget .badge-success {
+    background-color: #28a745;
+    color: white;
+    padding: 0.35em 0.65em;
+    font-size: 0.85rem;
+}
+
+.o_attendance_summary_widget .badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+    padding: 0.35em 0.65em;
+    font-size: 0.85rem;
+}
+
+.o_attendance_summary_widget .badge-danger {
+    background-color: #dc3545;
+    color: white;
+    padding: 0.35em 0.65em;
+    font-size: 0.85rem;
+}
+
+.o_attendance_summary_widget .form-label {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    color: #495057;
+}
+
+.o_attendance_summary_widget .alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+.o_attendance_summary_widget .fa-spinner {
+    color: #007bff;
+}

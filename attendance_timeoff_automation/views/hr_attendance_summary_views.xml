@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Attendance Summary Form View -->
+    <record id="view_hr_attendance_summary_form" model="ir.ui.view">
+        <field name="name">hr.attendance.summary.form</field>
+        <field name="model">hr.attendance.summary</field>
+        <field name="arch" type="xml">
+            <form string="Attendance Summary">
+                <header>
+                    <button name="action_compute_summary" string="Compute Summary" type="object" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                        </group>
+                        <group>
+                            <field name="employee_ids" widget="many2many_tags"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Summary">
+                            <field name="line_ids">
+                                <tree decoration-success="attendance_percentage &gt;= 90" 
+                                      decoration-warning="attendance_percentage &gt;= 70 and attendance_percentage &lt; 90"
+                                      decoration-danger="attendance_percentage &lt; 70">
+                                    <field name="employee_id"/>
+                                    <field name="total_working_days" widget="float" digits="[10, 2]"/>
+                                    <field name="worked_days" widget="float" digits="[10, 2]"/>
+                                    <field name="office_days" widget="float" digits="[10, 2]"/>
+                                    <field name="remote_days" widget="float" digits="[10, 2]"/>
+                                    <field name="leave_days" widget="float" digits="[10, 2]"/>
+                                    <field name="holiday_days" widget="float" digits="[10, 2]"/>
+                                    <field name="sick_days" widget="float" digits="[10, 2]"/>
+                                    <field name="weekend_days" widget="float" digits="[10, 2]"/>
+                                    <field name="attendance_percentage" widget="progressbar"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Attendance Summary Action -->
+    <record id="action_hr_attendance_summary" model="ir.actions.act_window">
+        <field name="name">Attendance Summary</field>
+        <field name="res_model">hr.attendance.summary</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="menu_hr_attendance_summary"
+              name="Attendance Summary"
+              parent="hr_attendance.menu_hr_attendance_report"
+              action="action_hr_attendance_summary"
+              sequence="10"/>
+
+    <!-- Dashboard View with Widget -->
+    <record id="view_hr_attendance_dashboard" model="ir.ui.view">
+        <field name="name">hr.attendance.dashboard</field>
+        <field name="model">hr.attendance</field>
+        <field name="arch" type="xml">
+            <dashboard>
+                <view type="graph"/>
+                <view type="pivot"/>
+                <group>
+                    <group colspan="2">
+                        <widget name="attendance_summary_widget"/>
+                    </group>
+                </group>
+            </dashboard>
+        </field>
+    </record>
+
+    <!-- Dashboard Action -->
+    <record id="action_hr_attendance_dashboard" model="ir.actions.act_window">
+        <field name="name">Attendance Dashboard</field>
+        <field name="res_model">hr.attendance</field>
+        <field name="view_mode">dashboard,tree,form</field>
+        <field name="view_id" ref="view_hr_attendance_dashboard"/>
+    </record>
+
+    <!-- Menu Item for Dashboard -->
+    <menuitem id="menu_hr_attendance_dashboard"
+              name="Attendance Dashboard"
+              parent="hr_attendance.menu_hr_attendance_root"
+              action="action_hr_attendance_dashboard"
+              sequence="1"/>
+
+</odoo>

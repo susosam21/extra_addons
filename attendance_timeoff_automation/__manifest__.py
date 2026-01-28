@@ -29,8 +29,16 @@
         'security/ir.model.access.csv',
         'views/hr_attendance_views.xml',
         'views/hr_contract_views.xml',
+        'views/hr_attendance_summary_views.xml',
         'data/ir_cron_data.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'attendance_timeoff_automation/static/src/components/attendance_summary_widget.js',
+            'attendance_timeoff_automation/static/src/components/attendance_summary_widget.xml',
+            'attendance_timeoff_automation/static/src/components/attendance_summary_widget.css',
+        ],
+    },
     'installable': True,
     'application': False,
     'auto_install': False,

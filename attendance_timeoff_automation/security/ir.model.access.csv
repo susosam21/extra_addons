@@ -5,3 +5,7 @@ access_hr_leave_allocation_user,hr.leave.allocation.user,hr_holidays.model_hr_le
 access_hr_leave_allocation_officer,hr.leave.allocation.officer,hr_holidays.model_hr_leave_allocation,hr_holidays.group_hr_holidays_user,1,1,1,1
 access_hr_leave_user,hr.leave.user,hr_holidays.model_hr_leave,base.group_user,1,1,1,0
 access_hr_leave_officer,hr.leave.officer,hr_holidays.model_hr_leave,hr_holidays.group_hr_holidays_user,1,1,1,1
+access_hr_attendance_summary_user,hr.attendance.summary.user,model_hr_attendance_summary,base.group_user,1,1,1,1
+access_hr_attendance_summary_manager,hr.attendance.summary.manager,model_hr_attendance_summary,hr_attendance.group_hr_attendance_manager,1,1,1,1
+access_hr_attendance_summary_line_user,hr.attendance.summary.line.user,model_hr_attendance_summary_line,base.group_user,1,1,1,1
+access_hr_attendance_summary_line_manager,hr.attendance.summary.line.manager,model_hr_attendance_summary_line,hr_attendance.group_hr_attendance_manager,1,1,1,1

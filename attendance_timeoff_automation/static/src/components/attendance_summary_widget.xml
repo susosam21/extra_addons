@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="attendance_timeoff_automation.AttendanceSummaryWidget">
+        <div class="o_attendance_summary_widget">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Attendance Summary</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Date Range Filter -->
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label">From Date:</label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   t-model="state.dateFrom"
+                                   t-on-change="onDateChange"/>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">To Date:</label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   t-model="state.dateTo"
+                                   t-on-change="onDateChange"/>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-primary" t-on-click="onDateChange">
+                                <i class="fa fa-refresh"/> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Loading Indicator -->
+                    <div t-if="state.loading" class="text-center py-5">
+                        <i class="fa fa-spinner fa-spin fa-3x"/>
+                        <p class="mt-2">Loading attendance data...</p>
+                    </div>
+
+                    <!-- Summary Table -->
+                    <div t-else="" class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Employee</th>
+                                    <th class="text-center">Working Days</th>
+                                    <th class="text-center">Worked Days</th>
+                                    <th class="text-center">Office</th>
+                                    <th class="text-center">Remote</th>
+                                    <th class="text-center">Leave</th>
+                                    <th class="text-center">Holiday</th>
+                                    <th class="text-center">Sick</th>
+                                    <th class="text-center">Weekend</th>
+                                    <th class="text-center">Attendance %</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-if="state.summaryData.length === 0">
+                                    <tr>
+                                        <td colspan="10" class="text-center py-4">
+                                            <i class="fa fa-info-circle"/> No attendance data found for the selected period.
+                                        </td>
+                                    </tr>
+                                </t>
+                                <t t-else="">
+                                    <tr t-foreach="state.summaryData" t-as="employee" t-key="employee.employee_id">
+                                        <td>
+                                            <strong t-esc="employee.employee_name"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.total_working_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.worked_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.office_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.remote_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.leave_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.holiday_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.sick_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="employee.weekend_days"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="progress" style="height: 20px; min-width: 80px;">
+                                                <div class="progress-bar" 
+                                                     role="progressbar" 
+                                                     t-att-class="getProgressBarClass(employee.attendance_percentage)"
+                                                     t-attf-style="width: {{ employee.attendance_percentage }}%"
+                                                     t-attf-aria-valuenow="{{ employee.attendance_percentage }}"
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    <span t-esc="employee.attendance_percentage"/>%
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge" 
+                                                  t-att-class="getStatusBadgeClass(employee.attendance_percentage)">
+                                                <t t-if="employee.attendance_percentage >= 90">Excellent</t>
+                                                <t t-elif="employee.attendance_percentage >= 70">Good</t>
+                                                <t t-else="">Needs Improvement</t>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Summary Statistics -->
+                    <div t-if="state.summaryData.length > 0" class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <strong>Summary Statistics:</strong>
+                                <ul class="mb-0">
+                                    <li>Total Employees: <t t-esc="state.summaryData.length"/></li>
+                                    <li>Average Attendance: <t t-esc="(state.summaryData.reduce((sum, e) => sum + e.attendance_percentage, 0) / state.summaryData.length).toFixed(2)"/>%</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>
