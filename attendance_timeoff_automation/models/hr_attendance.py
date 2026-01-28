@@ -19,6 +19,48 @@ class HrAttendance(models.Model):
         ('weekend', 'OFF'),
     ], string='Working Type', default='office', required=True)
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Override create to check for approved leaves and update working_type accordingly."""
+        records = super(HrAttendance, self).create(vals_list)
+        for record in records:
+            record._check_and_update_for_approved_leave()
+        return records
+
+    def write(self, vals):
+        """Override write to check for approved leaves and update working_type accordingly."""
+        result = super(HrAttendance, self).write(vals)
+        for record in self:
+            record._check_and_update_for_approved_leave()
+        return result
+
+    def _check_and_update_for_approved_leave(self):
+        """Check if there's an approved leave for this attendance and update working_type."""
+        if not self.employee_id or not self.check_in:
+            return
+        
+        attendance_date = self.check_in.date() if isinstance(self.check_in, datetime) else self.check_in
+        
+        # Search for approved leave that covers this date
+        leave = self.env['hr.leave'].search([
+            ('employee_id', '=', self.employee_id.id),
+            ('state', '=', 'validate'),
+            ('date_from', '<=', datetime.combine(attendance_date, datetime.max.time())),
+            ('date_to', '>=', datetime.combine(attendance_date, datetime.min.time())),
+        ], limit=1)
+        
+        if leave:
+            # Get the appropriate working_type for this leave
+            leave_working_type = self._get_working_type_from_leave(leave)
+            
+            # Update the attendance if the working_type is different
+            if self.working_type != leave_working_type:
+                # Use super().write to avoid recursion
+                super(HrAttendance, self).write({
+                    'working_type': leave_working_type,
+                })
+                _logger.info(f"Updated attendance for {self.employee_id.name} on {attendance_date} to {leave_working_type} due to approved leave")
+
     @api.model
     def _get_working_type_from_leave(self, leave):
         """
@@ -96,10 +138,23 @@ class HrAttendance(models.Model):
                     ('check_in', '<', datetime.combine(current_date + timedelta(days=1), datetime.min.time())),
                 ], limit=1)
                 
-                if not existing:
-                    # Create attendance record for the leave day
+                if existing:
+                    # If it's a weekend attendance, update it to the leave type
+                    if existing.working_type == 'weekend':
+                        try:
+                            # Keep the 0 hours duration (check_in = check_out) but update the type
+                            existing.write({
+                                'working_type': working_type,
+                            })
+                            created_count += 1
+                            _logger.debug(f"Updated weekend to {working_type} attendance for {employee.name} on {current_date}")
+                        except Exception as e:
+                            _logger.error(f"Failed to update weekend attendance for {employee.name} on {current_date}: {str(e)}")
+                else:
+                    # Create attendance record for the leave day with 0 hours
+                    # Set check_in and check_out to the same time (0 hours duration)
                     check_in = datetime.combine(current_date, datetime.min.time().replace(hour=0, minute=0))
-                    check_out = datetime.combine(current_date, datetime.min.time().replace(hour=23, minute=59))
+                    check_out = check_in  # Same time = 0 hours
                     
                     try:
                         self.create({
@@ -109,7 +164,7 @@ class HrAttendance(models.Model):
                             'working_type': working_type,
                         })
                         created_count += 1
-                        _logger.debug(f"Created {working_type} attendance for {employee.name} on {current_date}")
+                        _logger.debug(f"Created {working_type} attendance (0 hours) for {employee.name} on {current_date}")
                     except Exception as e:
                         _logger.error(f"Failed to create time off attendance for {employee.name} on {current_date}: {str(e)}")
                 
@@ -124,6 +179,7 @@ class HrAttendance(models.Model):
         Cron job method to automatically create weekend attendance records
         for the current month based on employee work schedules.
         Only processes active employees with valid contracts.
+        Creates attendance with 0 hours for days with 0 working hours in schedule.
         """
         _logger.info("Starting weekend attendance creation process...")
         
@@ -163,13 +219,25 @@ class HrAttendance(models.Model):
                 skipped_count += 1
                 continue
             
-            # Get all days that are NOT working days (weekends)
-            # Calendar attendance lines define working hours
-            # We need to find days not covered by the calendar
-            working_days = set()
+            # Identify days with 0 working hours (weekends/off days)
+            # Check the duration_days field instead of calculating from hour_from/hour_to
+            zero_hour_days = set()
+            _logger.info(f"Checking calendar '{calendar.name}' for employee {employee.name}")
+            _logger.info(f"  Calendar has {len(calendar.attendance_ids)} attendance lines")
+            
             for attendance_line in calendar.attendance_ids:
-                # dayofweek: 0=Monday, 1=Tuesday, ..., 6=Sunday
-                working_days.add(int(attendance_line.dayofweek))
+                day_num = int(attendance_line.dayofweek)
+                duration = attendance_line.duration_days if hasattr(attendance_line, 'duration_days') else 0
+                
+                _logger.info(f"  Day {day_num} ({['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][day_num]}): "
+                           f"duration_days = {duration}")
+                
+                # If duration is 0, it's a weekend/off day
+                if duration == 0 or abs(duration) < 0.01:
+                    zero_hour_days.add(day_num)
+                    _logger.info(f"    ✓ Identified as 0-duration day (weekend)")
+            
+            _logger.info(f"Employee {employee.name}: Zero-hour days = {sorted(zero_hour_days)}")
             
             # Generate weekend days for the current month
             current_date = first_day
@@ -177,8 +245,8 @@ class HrAttendance(models.Model):
                 # Python weekday: 0=Monday, 6=Sunday
                 weekday = current_date.weekday()
                 
-                # If this day is NOT in the working days, it's a weekend/off day
-                if weekday not in working_days:
+                # If this day has 0 working hours, create weekend attendance
+                if weekday in zero_hour_days:
                     # Check if attendance record already exists for this day
                     existing = self.search([
                         ('employee_id', '=', employee.id),
@@ -187,10 +255,10 @@ class HrAttendance(models.Model):
                     ], limit=1)
                     
                     if not existing:
-                        # Create weekend attendance record
-                        # Set check_in to start of day and check_out to end of day
+                        # Create weekend attendance record with 0 hours
+                        # Set both check_in and check_out to the same time (0 hours)
                         check_in = datetime.combine(current_date, datetime.min.time().replace(hour=0, minute=0))
-                        check_out = datetime.combine(current_date, datetime.min.time().replace(hour=23, minute=59))
+                        check_out = check_in  # Same time = 0 hours
                         
                         try:
                             self.create({
@@ -200,7 +268,7 @@ class HrAttendance(models.Model):
                                 'working_type': 'weekend',
                             })
                             created_count += 1
-                            _logger.debug(f"Created weekend attendance for {employee.name} on {current_date}")
+                            _logger.debug(f"Created weekend attendance (0 hours) for {employee.name} on {current_date}")
                         except Exception as e:
                             _logger.error(f"Failed to create weekend attendance for {employee.name} on {current_date}: {str(e)}")
                 

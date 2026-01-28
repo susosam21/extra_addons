@@ -6,7 +6,7 @@
         <field name="model">hr.leave.type</field>
         <field name="inherit_id" ref="hr_holidays.edit_holiday_status_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='name']" position="after">
+            <xpath expr="//field[@name='time_type']" position="after">
                 <field name="code" placeholder="e.g., ANNUAL, SICK, HOLIDAY"/>
             </xpath>
         </field>
@@ -18,7 +18,7 @@
         <field name="model">hr.leave.type</field>
         <field name="inherit_id" ref="hr_holidays.view_holiday_status_normal_tree"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='name']" position="after">
+            <xpath expr="//field[@name='display_name']" position="after">
                 <field name="code" optional="show"/>
             </xpath>
         </field>
@@ -30,6 +30,12 @@
         <field name="model">hr.attendance</field>
         <field name="inherit_id" ref="hr_attendance.view_attendance_tree"/>
         <field name="arch" type="xml">
+            <xpath expr="//tree" position="attributes">
+                <attribute name="decoration-danger">working_type in ('sick', 'annual_leave')</attribute>
+                <attribute name="decoration-success">working_type == 'weekend'</attribute>
+                <attribute name="decoration-info">working_type == 'remote'</attribute>
+                <attribute name="decoration-warning">working_type == 'holiday'</attribute>
+            </xpath>
             <xpath expr="//field[@name='employee_id']" position="after">
                 <field name="working_type" optional="show"/>
             </xpath>
