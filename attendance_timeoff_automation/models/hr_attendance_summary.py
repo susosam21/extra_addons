@@ -14,11 +14,196 @@ class HrAttendanceSummary(models.TransientModel):
     """
     _name = 'hr.attendance.summary'
     _description = 'HR Attendance Summary'
+    _rec_name = 'name'
 
-    date_from = fields.Date(string='From Date', required=True, default=lambda self: fields.Date.today().replace(day=1))
-    date_to = fields.Date(string='To Date', required=True, default=lambda self: fields.Date.today())
+    name = fields.Char(string='Name', compute='_compute_name', store=True)
+    month_selection = fields.Selection([
+        ('01', 'January'),
+        ('02', 'February'),
+        ('03', 'March'),
+        ('04', 'April'),
+        ('05', 'May'),
+        ('06', 'June'),
+        ('07', 'July'),
+        ('08', 'August'),
+        ('09', 'September'),
+        ('10', 'October'),
+        ('11', 'November'),
+        ('12', 'December'),
+    ], string='Month', default=lambda self: str(fields.Date.today().month).zfill(2))
+    year_selection = fields.Integer(string='Year', default=lambda self: fields.Date.today().year)
+    date_from = fields.Date(string='From Date', compute='_compute_dates', store=True)
+    date_to = fields.Date(string='To Date', compute='_compute_dates', store=True)
     employee_ids = fields.Many2many('hr.employee', string='Employees', help='Leave empty to include all employees')
     line_ids = fields.One2many('hr.attendance.summary.line', 'summary_id', string='Summary Lines')
+    
+    # Time off summary fields
+    total_paid_time_off = fields.Float(string='Total Paid Time Off', compute='_compute_timeoff_summary')
+    total_sick_time_off = fields.Float(string='Total Sick Time Off', compute='_compute_timeoff_summary')
+    total_compensatory_hours = fields.Float(string='Total Compensatory Hours', compute='_compute_timeoff_summary')
+    
+    # Summary fields for tree view
+    total_employees = fields.Integer(string='Total Employees', compute='_compute_summary_stats')
+    total_worked_days_sum = fields.Float(string='Total Worked Days', compute='_compute_summary_stats')
+    total_working_days_sum = fields.Float(string='Total Working Days', compute='_compute_summary_stats')
+    overall_attendance_percentage = fields.Float(string='Overall Attendance %', compute='_compute_summary_stats')
+    
+    # Working type totals
+    total_office_days = fields.Integer(string='Total Office Days', compute='_compute_summary_stats')
+    total_remote_days = fields.Integer(string='Total Remote Days', compute='_compute_summary_stats')
+    total_annual_leave_days = fields.Integer(string='Total Annual Leave Days', compute='_compute_summary_stats')
+    total_sick_days = fields.Integer(string='Total Sick Days', compute='_compute_summary_stats')
+    total_holiday_days = fields.Integer(string='Total Holiday Days', compute='_compute_summary_stats')
+    total_weekend_days = fields.Integer(string='Total Weekend Days', compute='_compute_summary_stats')
+    actual_worked_count = fields.Integer(string='Employees Who Worked', compute='_compute_summary_stats')
+    actual_working_days_in_month = fields.Float(string='Actual Working Days in Month', compute='_compute_summary_stats')
+
+    @api.depends('month_selection', 'year_selection')
+    def _compute_name(self):
+        """Generate a display name based on month and year."""
+        month_names = {
+            '01': 'January', '02': 'February', '03': 'March', '04': 'April',
+            '05': 'May', '06': 'June', '07': 'July', '08': 'August',
+            '09': 'September', '10': 'October', '11': 'November', '12': 'December'
+        }
+        for record in self:
+            if record.month_selection and record.year_selection:
+                month_name = month_names.get(record.month_selection, 'Unknown')
+                record.name = f"{month_name} {record.year_selection} - Attendance Summary"
+            else:
+                record.name = "Attendance Summary"
+
+    @api.depends('month_selection', 'year_selection')
+    def _compute_dates(self):
+        """Compute date_from and date_to based on month and year selection."""
+        for record in self:
+            if record.month_selection and record.year_selection:
+                month = int(record.month_selection)
+                year = record.year_selection
+                # First day of the month
+                record.date_from = datetime(year, month, 1).date()
+                # Last day of the month
+                if month == 12:
+                    record.date_to = datetime(year, 12, 31).date()
+                else:
+                    record.date_to = (datetime(year, month + 1, 1) - timedelta(days=1)).date()
+            else:
+                record.date_from = fields.Date.today().replace(day=1)
+                record.date_to = fields.Date.today()
+
+    @api.depends('employee_ids')
+    def _compute_timeoff_summary(self):
+        """Compute total available time off across selected employees."""
+        for record in self:
+            if not record.employee_ids:
+                employees = self.env['hr.employee'].search([('active', '=', True)])
+            else:
+                employees = record.employee_ids
+            
+            total_paid = 0
+            total_sick = 0
+            total_comp = 0
+            
+            for employee in employees:
+                # Get allocation for each leave type
+                allocations = self.env['hr.leave.allocation'].search([
+                    ('employee_id', '=', employee.id),
+                    ('state', '=', 'validate'),
+                    ('date_to', '>=', fields.Date.today()),
+                ])
+                
+                for allocation in allocations:
+                    leave_type_code = allocation.holiday_status_id.code or ''
+                    leave_type_name = allocation.holiday_status_id.name.lower()
+                    
+                    # Calculate remaining days/hours
+                    remaining = allocation.number_of_days - allocation.leaves_taken
+                    
+                    if leave_type_code == 'ANNUAL' or 'paid' in leave_type_name or 'annual' in leave_type_name:
+                        total_paid += remaining
+                    elif leave_type_code == 'SICK' or 'sick' in leave_type_name:
+                        total_sick += remaining
+                    elif 'comp' in leave_type_name or 'overtime' in leave_type_name:
+                        # Convert days to hours for compensatory time
+                        total_comp += remaining * 8
+            
+            record.total_paid_time_off = total_paid
+            record.total_sick_time_off = total_sick
+            record.total_compensatory_hours = total_comp
+
+    @api.depends('line_ids', 'line_ids.worked_days', 'line_ids.total_working_days')
+    def _compute_summary_stats(self):
+        """Compute summary statistics for tree view display."""
+        for record in self:
+            total_employees = len(record.line_ids)
+            total_worked = sum(record.line_ids.mapped('worked_days'))
+            total_working = sum(record.line_ids.mapped('total_working_days'))
+            
+            # Calculate totals for each working type
+            total_office = sum(record.line_ids.mapped('office_days'))
+            total_remote = sum(record.line_ids.mapped('remote_days'))
+            total_annual_leave = sum(record.line_ids.mapped('leave_days'))
+            total_sick = sum(record.line_ids.mapped('sick_days'))
+            total_holiday = sum(record.line_ids.mapped('holiday_days'))
+            total_weekend = sum(record.line_ids.mapped('weekend_days'))
+            
+            # Count employees who actually worked (office + remote > 0)
+            actual_worked = len([line for line in record.line_ids if (line.office_days + line.remote_days) > 0])
+            
+            # Calculate actual working days in month based on work schedules
+            actual_working_days = 0
+            if record.date_from and record.date_to:
+                # Get employees to check their work schedules
+                employees = record.line_ids.mapped('employee_id')
+                if not employees:
+                    employees = self.env['hr.employee'].search([('active', '=', True)])
+                
+                # Use first employee's calendar as reference (assuming company-wide schedule)
+                # Or calculate average across all employees
+                for employee in employees:
+                    contract = self.env['hr.contract'].search([
+                        ('employee_id', '=', employee.id),
+                        ('state', '=', 'open'),
+                        ('date_start', '<=', record.date_to),
+                        '|',
+                        ('date_end', '=', False),
+                        ('date_end', '>=', record.date_from),
+                    ], limit=1)
+                    
+                    if contract and contract.resource_calendar_id:
+                        calendar = contract.resource_calendar_id
+                        # Count working days based on calendar
+                        working_days_in_week = len([att for att in calendar.attendance_ids if att.duration_days > 0])
+                        
+                        # Calculate working days for the month
+                        current_date = record.date_from
+                        employee_working_days = 0
+                        while current_date <= record.date_to:
+                            weekday = current_date.weekday()
+                            # Check if this day is a working day in the calendar
+                            is_working_day = any(
+                                int(att.dayofweek) == weekday and att.duration_days > 0
+                                for att in calendar.attendance_ids
+                            )
+                            if is_working_day:
+                                employee_working_days += 1
+                            current_date += timedelta(days=1)
+                        
+                        actual_working_days += employee_working_days
+                        break  # Use first employee's schedule as reference
+            
+            record.total_employees = total_employees
+            record.total_worked_days_sum = total_worked
+            record.total_working_days_sum = total_working
+            record.overall_attendance_percentage = (total_worked / total_working * 100) if total_working > 0 else 0
+            record.total_office_days = int(total_office)
+            record.total_remote_days = int(total_remote)
+            record.total_annual_leave_days = int(total_annual_leave)
+            record.total_sick_days = int(total_sick)
+            record.total_holiday_days = int(total_holiday)
+            record.total_weekend_days = int(total_weekend)
+            record.actual_worked_count = actual_worked
+            record.actual_working_days_in_month = actual_working_days
 
     def action_compute_summary(self):
         """Compute the attendance summary for the selected date range and employees."""

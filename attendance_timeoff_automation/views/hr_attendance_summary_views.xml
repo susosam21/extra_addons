@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Attendance Summary Tree View -->
+    <record id="view_hr_attendance_summary_tree" model="ir.ui.view">
+        <field name="name">hr.attendance.summary.tree</field>
+        <field name="model">hr.attendance.summary</field>
+        <field name="arch" type="xml">
+            <tree string="Attendance Summary" create="true">
+                <field name="month_selection"/>
+                <field name="year_selection"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="total_employees" string="Employees"/>
+                <field name="total_worked_days_sum" string="Worked Days" widget="float" digits="[10, 1]"/>
+                <field name="total_working_days_sum" string="Total Days" widget="float" digits="[10, 1]"/>
+                <field name="overall_attendance_percentage" string="Attendance %" widget="progressbar"/>
+            </tree>
+        </field>
+    </record>
+
     <!-- Attendance Summary Form View -->
     <record id="view_hr_attendance_summary_form" model="ir.ui.view">
         <field name="name">hr.attendance.summary.form</field>
@@ -10,10 +28,76 @@
                     <button name="action_compute_summary" string="Compute Summary" type="object" class="oe_highlight"/>
                 </header>
                 <sheet>
+                    <!-- Actual Working Summary -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="alert alert-info" role="alert">
+                                <h5><i class="fa fa-users"/> Working Summary</h5>
+                                <p class="mb-0"><strong><field name="actual_worked_count"/> out of <field name="total_employees"/> employees</strong> actually worked (Office + Remote)</p>
+                                <p class="mb-0">Total Working Days: <strong><field name="total_worked_days_sum"/> days</strong></p>
+                                <p class="mb-0">Actual Working Days in Month (from schedule): <strong><field name="actual_working_days_in_month"/> days</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Working Type Totals -->
+                    <div class="row">
+                        <div class="col-md-2" invisible="total_office_days == 0">
+                            <div class="card border-primary mb-3">
+                                <div class="card-body text-center p-2">
+                                    <h6 class="text-muted mb-1">Office</h6>
+                                    <h3 class="mb-0"><field name="total_office_days"/></h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2" invisible="total_remote_days == 0">
+                            <div class="card border-info mb-3">
+                                <div class="card-body text-center p-2">
+                                    <h6 class="text-muted mb-1">Remote</h6>
+                                    <h3 class="mb-0"><field name="total_remote_days"/></h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2" invisible="total_annual_leave_days == 0">
+                            <div class="card border-success mb-3">
+                                <div class="card-body text-center p-2">
+                                    <h6 class="text-muted mb-1">Annual Leave</h6>
+                                    <h3 class="mb-0"><field name="total_annual_leave_days"/></h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2" invisible="total_sick_days == 0">
+                            <div class="card border-danger mb-3">
+                                <div class="card-body text-center p-2">
+                                    <h6 class="text-muted mb-1">Sick</h6>
+                                    <h3 class="mb-0"><field name="total_sick_days"/></h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2" invisible="total_holiday_days == 0">
+                            <div class="card border-warning mb-3">
+                                <div class="card-body text-center p-2">
+                                    <h6 class="text-muted mb-1">Holiday</h6>
+                                    <h3 class="mb-0"><field name="total_holiday_days"/></h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2" invisible="total_weekend_days == 0">
+                            <div class="card border-secondary mb-3">
+                                <div class="card-body text-center p-2">
+                                    <h6 class="text-muted mb-1">OFF</h6>
+                                    <h3 class="mb-0"><field name="total_weekend_days"/></h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <group>
                         <group>
-                            <field name="date_from"/>
-                            <field name="date_to"/>
+                            <field name="month_selection"/>
+                            <field name="year_selection"/>
+                            <field name="date_from" readonly="1"/>
+                            <field name="date_to" readonly="1"/>
                         </group>
                         <group>
                             <field name="employee_ids" widget="many2many_tags"/>
@@ -26,14 +110,13 @@
                                       decoration-warning="attendance_percentage &gt;= 70 and attendance_percentage &lt; 90"
                                       decoration-danger="attendance_percentage &lt; 70">
                                     <field name="employee_id"/>
-                                    <field name="total_working_days" widget="float" digits="[10, 2]"/>
-                                    <field name="worked_days" widget="float" digits="[10, 2]"/>
-                                    <field name="office_days" widget="float" digits="[10, 2]"/>
-                                    <field name="remote_days" widget="float" digits="[10, 2]"/>
-                                    <field name="leave_days" widget="float" digits="[10, 2]"/>
-                                    <field name="holiday_days" widget="float" digits="[10, 2]"/>
-                                    <field name="sick_days" widget="float" digits="[10, 2]"/>
-                                    <field name="weekend_days" widget="float" digits="[10, 2]"/>
+                                    <field name="total_working_days"/>
+                                    <field name="office_days" string="Office" widget="integer"/>
+                                    <field name="remote_days" string="Remote" widget="integer"/>
+                                    <field name="leave_days" string="Annual Leave" widget="integer"/>
+                                    <field name="sick_days" string="Sick" widget="integer"/>
+                                    <field name="holiday_days" string="Holiday" widget="integer"/>
+                                    <field name="weekend_days" string="Weekend" widget="integer"/>
                                     <field name="attendance_percentage" widget="progressbar"/>
                                 </tree>
                             </field>
@@ -48,47 +131,24 @@
     <record id="action_hr_attendance_summary" model="ir.actions.act_window">
         <field name="name">Attendance Summary</field>
         <field name="res_model">hr.attendance.summary</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
+        <field name="view_mode">tree,form</field>
+        <field name="target">current</field>
+        <field name="groups_id" eval="[(4, ref('hr_attendance.group_hr_attendance_manager'))]"/>
     </record>
 
     <!-- Menu Item -->
     <menuitem id="menu_hr_attendance_summary"
               name="Attendance Summary"
-              parent="hr_attendance.menu_hr_attendance_report"
+              parent="hr_attendance.menu_hr_attendance_reporting"
               action="action_hr_attendance_summary"
+              groups="hr_attendance.group_hr_attendance_manager"
               sequence="10"/>
 
-    <!-- Dashboard View with Widget -->
-    <record id="view_hr_attendance_dashboard" model="ir.ui.view">
-        <field name="name">hr.attendance.dashboard</field>
-        <field name="model">hr.attendance</field>
-        <field name="arch" type="xml">
-            <dashboard>
-                <view type="graph"/>
-                <view type="pivot"/>
-                <group>
-                    <group colspan="2">
-                        <widget name="attendance_summary_widget"/>
-                    </group>
-                </group>
-            </dashboard>
-        </field>
-    </record>
-
-    <!-- Dashboard Action -->
-    <record id="action_hr_attendance_dashboard" model="ir.actions.act_window">
-        <field name="name">Attendance Dashboard</field>
-        <field name="res_model">hr.attendance</field>
-        <field name="view_mode">dashboard,tree,form</field>
-        <field name="view_id" ref="view_hr_attendance_dashboard"/>
-    </record>
-
-    <!-- Menu Item for Dashboard -->
-    <menuitem id="menu_hr_attendance_dashboard"
-              name="Attendance Dashboard"
-              parent="hr_attendance.menu_hr_attendance_root"
-              action="action_hr_attendance_dashboard"
-              sequence="1"/>
+    <menuitem id="menu_hr_attendance_analysis"
+              name="Attendance Analysis"
+              parent="hr_attendance.menu_hr_attendance_reporting"
+              action="hr_attendance.hr_attendance_reporting"
+              groups="hr_attendance.group_hr_attendance_manager"
+              sequence="10"/>
 
 </odoo>
