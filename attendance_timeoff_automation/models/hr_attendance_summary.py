@@ -99,6 +99,12 @@ class HrAttendanceSummary(models.TransientModel):
                 employees = self.env['hr.employee'].search([('active', '=', True)])
             else:
                 employees = record.employee_ids
+
+            employees = record._filter_employees_with_contract(
+                employees,
+                record.date_from or fields.Date.today().replace(day=1),
+                record.date_to or fields.Date.today(),
+            )
             
             total_paid = 0
             total_sick = 0
@@ -172,9 +178,6 @@ class HrAttendanceSummary(models.TransientModel):
                     
                     if contract and contract.resource_calendar_id:
                         calendar = contract.resource_calendar_id
-                        # Count working days based on calendar
-                        working_days_in_week = len([att for att in calendar.attendance_ids if att.duration_days > 0])
-                        
                         # Calculate working days for the month
                         current_date = record.date_from
                         employee_working_days = 0
@@ -191,10 +194,17 @@ class HrAttendanceSummary(models.TransientModel):
                         
                         actual_working_days += employee_working_days
                         break  # Use first employee's schedule as reference
+
+            # Scale schedule working days by employee count (total expected working days)
+            if total_employees and actual_working_days:
+                actual_working_days = actual_working_days * total_employees
+
+            # Deduct public holidays from total working days
+            adjusted_total_working = max(total_working - total_holiday, 0)
             
             record.total_employees = total_employees
             record.total_worked_days_sum = total_worked
-            record.total_working_days_sum = total_working
+            record.total_working_days_sum = adjusted_total_working
             record.overall_attendance_percentage = (total_worked / total_working * 100) if total_working > 0 else 0
             record.total_office_days = int(total_office)
             record.total_remote_days = int(total_remote)
@@ -203,7 +213,7 @@ class HrAttendanceSummary(models.TransientModel):
             record.total_holiday_days = int(total_holiday)
             record.total_weekend_days = int(total_weekend)
             record.actual_worked_count = actual_worked
-            record.actual_working_days_in_month = actual_working_days
+            record.actual_working_days_in_month = max(actual_working_days - total_holiday, 0)
 
     def action_compute_summary(self):
         """Compute the attendance summary for the selected date range and employees."""
@@ -217,6 +227,8 @@ class HrAttendanceSummary(models.TransientModel):
             employees = self.employee_ids
         else:
             employees = self.env['hr.employee'].search([('active', '=', True)])
+
+        employees = self._filter_employees_with_contract(employees, self.date_from, self.date_to)
         
         # Compute summary for each employee
         lines_data = []
@@ -349,6 +361,8 @@ class HrAttendanceSummary(models.TransientModel):
             employees = self.env['hr.employee'].browse(employee_ids)
         else:
             employees = self.env['hr.employee'].search([('active', '=', True)])
+
+        employees = self._filter_employees_with_contract(employees, date_from, date_to)
         
         # Create temporary summary record
         summary = self.create({
@@ -375,6 +389,23 @@ class HrAttendanceSummary(models.TransientModel):
             })
         
         return summary_data
+
+    def _filter_employees_with_contract(self, employees, date_from, date_to):
+        """Return only employees who have an active contract in the given period."""
+        if not employees:
+            return employees
+
+        contracts = self.env['hr.contract'].search([
+            ('employee_id', 'in', employees.ids),
+            ('state', '=', 'open'),
+            ('date_start', '<=', date_to),
+            '|',
+            ('date_end', '=', False),
+            ('date_end', '>=', date_from),
+        ])
+
+        contract_employee_ids = set(contracts.mapped('employee_id').ids)
+        return employees.filtered(lambda e: e.id in contract_employee_ids)
 
 
 class HrAttendanceSummaryLine(models.TransientModel):

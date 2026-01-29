@@ -34,8 +34,7 @@
                             <div class="alert alert-info" role="alert">
                                 <h5><i class="fa fa-users"/> Working Summary</h5>
                                 <p class="mb-0"><strong><field name="actual_worked_count"/> out of <field name="total_employees"/> employees</strong> actually worked (Office + Remote)</p>
-                                <p class="mb-0">Total Working Days: <strong><field name="total_worked_days_sum"/> days</strong></p>
-                                <p class="mb-0">Actual Working Days in Month (from schedule): <strong><field name="actual_working_days_in_month"/> days</strong></p>
+                                <p class="mb-0">Total Working Days: <strong><field name="total_worked_days_sum"/> out of <field name="actual_working_days_in_month"/> days</strong></p>
                             </div>
                         </div>
                     </div>
@@ -100,7 +99,7 @@
                             <field name="date_to" readonly="1"/>
                         </group>
                         <group>
-                            <field name="employee_ids" widget="many2many_tags"/>
+                            <field name="employee_ids" widget="many2many_tags" domain="[('contract_id','!=',False)]"/>
                         </group>
                     </group>
                     <notebook>
