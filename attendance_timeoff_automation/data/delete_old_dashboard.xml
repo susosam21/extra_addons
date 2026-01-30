@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Delete old dashboard records that might conflict -->
+    <delete model="ir.actions.act_window" search="[('id', '=', ref('action_hr_attendance_dashboard', raise_if_not_found=False))]"/>
+    <delete model="ir.ui.view" search="[('id', '=', ref('view_hr_attendance_summary_dashboard', raise_if_not_found=False))]"/>
+</odoo>

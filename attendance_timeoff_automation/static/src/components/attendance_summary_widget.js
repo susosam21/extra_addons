@@ -6,6 +6,9 @@ import { useService } from "@web/core/utils/hooks";
 
 export class AttendanceSummaryWidget extends Component {
     static template = "attendance_timeoff_automation.AttendanceSummaryWidget";
+    static props = {
+        "*": true,  // Accept any props for client action compatibility
+    };
 
     setup() {
         this.orm = useService("orm");
@@ -67,4 +70,6 @@ export class AttendanceSummaryWidget extends Component {
     }
 }
 
+// Register as both widget and client action
 registry.category("view_widgets").add("attendance_summary_widget", AttendanceSummaryWidget);
+registry.category("actions").add("attendance_dashboard_action", AttendanceSummaryWidget);

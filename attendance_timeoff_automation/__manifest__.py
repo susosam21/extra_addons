@@ -27,6 +27,7 @@
     ],
     'data': [
         'security/ir.model.access.csv',
+        'data/delete_old_dashboard.xml',
         'views/hr_attendance_views.xml',
         'views/hr_contract_views.xml',
         'views/hr_attendance_summary_views.xml',
