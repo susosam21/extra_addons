@@ -156,48 +156,8 @@ class HrAttendanceSummary(models.TransientModel):
             # Count employees who actually worked (office + remote > 0)
             actual_worked = len([line for line in record.line_ids if (line.office_days + line.remote_days) > 0])
             
-            # Calculate actual working days in month based on work schedules
-            actual_working_days = 0
-            if record.date_from and record.date_to:
-                # Get employees to check their work schedules
-                employees = record.line_ids.mapped('employee_id')
-                if not employees:
-                    employees = self.env['hr.employee'].search([('active', '=', True)])
-                
-                # Use first employee's calendar as reference (assuming company-wide schedule)
-                # Or calculate average across all employees
-                for employee in employees:
-                    contract = self.env['hr.contract'].search([
-                        ('employee_id', '=', employee.id),
-                        ('state', '=', 'open'),
-                        ('date_start', '<=', record.date_to),
-                        '|',
-                        ('date_end', '=', False),
-                        ('date_end', '>=', record.date_from),
-                    ], limit=1)
-                    
-                    if contract and contract.resource_calendar_id:
-                        calendar = contract.resource_calendar_id
-                        # Calculate working days for the month
-                        current_date = record.date_from
-                        employee_working_days = 0
-                        while current_date <= record.date_to:
-                            weekday = current_date.weekday()
-                            # Check if this day is a working day in the calendar
-                            is_working_day = any(
-                                int(att.dayofweek) == weekday and att.duration_days > 0
-                                for att in calendar.attendance_ids
-                            )
-                            if is_working_day:
-                                employee_working_days += 1
-                            current_date += timedelta(days=1)
-                        
-                        actual_working_days += employee_working_days
-                        break  # Use first employee's schedule as reference
-
-            # Scale schedule working days by employee count (total expected working days)
-            if total_employees and actual_working_days:
-                actual_working_days = actual_working_days * total_employees
+            # Calculate actual working days in month based on employee schedules
+            actual_working_days = sum(record.line_ids.mapped('total_working_days'))
 
             # Deduct public holidays from total working days
             adjusted_total_working = max(total_working - total_holiday, 0)
@@ -254,8 +214,8 @@ class HrAttendanceSummary(models.TransientModel):
         Compute attendance summary for a single employee.
         Returns a dict with summary data.
         """
-        # Calculate total working days (excluding weekends)
-        total_working_days = self._calculate_working_days(self.date_from, self.date_to)
+        # Calculate total working days based on employee schedule
+        total_working_days = self._calculate_working_days(self.date_from, self.date_to, employee)
         
         # Get attendance records for the period
         attendances = self.env['hr.attendance'].search([
@@ -289,7 +249,6 @@ class HrAttendanceSummary(models.TransientModel):
             
             if 'sick' in working_types:
                 sick_days += 1
-                leave_days += 1
                 # Sick days don't count as worked days
             elif 'annual_leave' in working_types:
                 leave_days += 1
@@ -307,13 +266,16 @@ class HrAttendanceSummary(models.TransientModel):
                 remote_days += 1
                 worked_days += 1
         
+        # Deduct public holidays from working days
+        adjusted_working_days = max(total_working_days - holiday_days, 0)
+
         # Calculate attendance percentage
-        attendance_percentage = (worked_days / total_working_days * 100) if total_working_days > 0 else 0
+        attendance_percentage = (worked_days / adjusted_working_days * 100) if adjusted_working_days > 0 else 0
         
         return {
             'summary_id': self.id,
             'employee_id': employee.id,
-            'total_working_days': total_working_days,
+            'total_working_days': adjusted_working_days,
             'worked_days': worked_days,
             'office_days': office_days,
             'remote_days': remote_days,
@@ -324,19 +286,43 @@ class HrAttendanceSummary(models.TransientModel):
             'attendance_percentage': attendance_percentage,
         }
 
-    def _calculate_working_days(self, date_from, date_to):
+    def _calculate_working_days(self, date_from, date_to, employee):
         """
-        Calculate the number of working days (excluding weekends) in the date range.
+        Calculate the number of working days in the date range based on the
+        employee's working schedule (resource calendar).
         """
+        calendar = False
+        contract = self.env['hr.contract'].search([
+            ('employee_id', '=', employee.id),
+            ('state', '=', 'open'),
+            ('date_start', '<=', date_to),
+            '|',
+            ('date_end', '=', False),
+            ('date_end', '>=', date_from),
+        ], limit=1)
+
+        if contract and contract.resource_calendar_id:
+            calendar = contract.resource_calendar_id
+        elif hasattr(employee, 'resource_calendar_id') and employee.resource_calendar_id:
+            calendar = employee.resource_calendar_id
+
         current_date = date_from
         working_days = 0
-        
+
         while current_date <= date_to:
-            # Check if it's a weekday (Monday=0 to Sunday=6)
-            if current_date.weekday() < 5:  # Monday to Friday
-                working_days += 1
+            weekday = current_date.weekday()
+            if calendar:
+                is_working_day = any(
+                    int(att.dayofweek) == weekday and att.duration_days > 0
+                    for att in calendar.attendance_ids
+                )
+                if is_working_day:
+                    working_days += 1
+            else:
+                if weekday < 5:
+                    working_days += 1
             current_date += timedelta(days=1)
-        
+
         return working_days
 
     @api.model

@@ -37,7 +37,9 @@
                 <attribute name="decoration-warning">working_type == 'holiday'</attribute>
             </xpath>
             <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="day_name" optional="show"/>
                 <field name="working_type" optional="show"/>
+                <field name="note" optional="hide"/>
             </xpath>
         </field>
     </record>
@@ -49,7 +51,21 @@
         <field name="inherit_id" ref="hr_attendance.hr_attendance_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="day_name"/>
                 <field name="working_type"/>
+            </xpath>
+            <xpath expr="//field[@name='check_in']" position="attributes">
+                <attribute name="widget">datetime</attribute>
+                <attribute name="options">{'datepicker': {'format': 'MM/dd/yyyy hh:mm a', 'showSeconds': false}, 'timepicker': {'format': '%I:%M %p', 'showMeridian': true, 'minuteStep': 5}}</attribute>
+                <attribute name="placeholder">DD/MM/YYYY hh:mm AM/PM</attribute>
+            </xpath>
+            <xpath expr="//field[@name='check_out']" position="attributes">
+                <attribute name="widget">datetime</attribute>
+                <attribute name="options">{'datepicker': {'format': 'MM/dd/yyyy hh:mm a', 'showSeconds': false}, 'timepicker': {'format': '%I:%M %p', 'showMeridian': true, 'minuteStep': 5}}</attribute>
+                <attribute name="placeholder">DD/MM/YYYY hh:mm AM/PM</attribute>
+            </xpath>
+            <xpath expr="//field[@name='check_out']" position="after">
+                <field name="note" placeholder="Leave description or notes..."/>
             </xpath>
         </field>
     </record>

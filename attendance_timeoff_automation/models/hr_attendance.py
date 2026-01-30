@@ -18,6 +18,34 @@ class HrAttendance(models.Model):
         ('annual_leave', 'Annual Leave'),
         ('weekend', 'OFF'),
     ], string='Working Type', default='office', required=True)
+    attendance_date = fields.Date(
+        string='Day',
+        compute='_compute_attendance_date',
+        store=True
+    )
+    day_name = fields.Char(
+        string='Day',
+        compute='_compute_day_name',
+        store=True
+    )
+    note = fields.Text(string='Note')
+
+    @api.depends('check_in', 'check_out')
+    def _compute_attendance_date(self):
+        for record in self:
+            dt_value = record.check_in or record.check_out
+            if isinstance(dt_value, datetime):
+                record.attendance_date = dt_value.date()
+            else:
+                record.attendance_date = dt_value
+
+    @api.depends('attendance_date')
+    def _compute_day_name(self):
+        for record in self:
+            if record.attendance_date:
+                record.day_name = record.attendance_date.strftime('%A')
+            else:
+                record.day_name = False
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -52,14 +80,26 @@ class HrAttendance(models.Model):
         if leave:
             # Get the appropriate working_type for this leave
             leave_working_type = self._get_working_type_from_leave(leave)
+            leave_note = self._get_leave_note(leave)
             
             # Update the attendance if the working_type is different
+            vals = {}
             if self.working_type != leave_working_type:
                 # Use super().write to avoid recursion
-                super(HrAttendance, self).write({
-                    'working_type': leave_working_type,
-                })
+                vals['working_type'] = leave_working_type
+            if leave_note and self.note != leave_note:
+                vals['note'] = leave_note
+            if vals:
+                super(HrAttendance, self).write(vals)
                 _logger.info(f"Updated attendance for {self.employee_id.name} on {attendance_date} to {leave_working_type} due to approved leave")
+
+    @api.model
+    def _get_leave_note(self, leave):
+        """Return a note string from leave description if available."""
+        if not leave:
+            return False
+        leave_name = (leave.name or '').strip()
+        return leave_name if leave_name else False
 
     @api.model
     def _get_working_type_from_leave(self, leave):
@@ -143,8 +183,14 @@ class HrAttendance(models.Model):
                     if existing.working_type == 'weekend':
                         try:
                             # Keep the 0 hours duration (check_in = check_out) but update the type
-                            existing.write({
+                            leave_note = self._get_leave_note(leave)
+                            update_vals = {
                                 'working_type': working_type,
+                            }
+                            if leave_note:
+                                update_vals['note'] = leave_note
+                            existing.write({
+                                **update_vals,
                             })
                             created_count += 1
                             _logger.debug(f"Updated weekend to {working_type} attendance for {employee.name} on {current_date}")
@@ -157,11 +203,17 @@ class HrAttendance(models.Model):
                     check_out = check_in  # Same time = 0 hours
                     
                     try:
-                        self.create({
+                        leave_note = self._get_leave_note(leave)
+                        create_vals = {
                             'employee_id': employee.id,
                             'check_in': check_in,
                             'check_out': check_out,
                             'working_type': working_type,
+                        }
+                        if leave_note:
+                            create_vals['note'] = leave_note
+                        self.create({
+                            **create_vals,
                         })
                         created_count += 1
                         _logger.debug(f"Created {working_type} attendance (0 hours) for {employee.name} on {current_date}")
@@ -171,6 +223,93 @@ class HrAttendance(models.Model):
                 current_date += timedelta(days=1)
         
         _logger.info(f"Time off attendance creation completed. Created: {created_count} records")
+        self._create_public_holiday_attendances(first_day, last_day)
+        return True
+
+    @api.model
+    def _create_public_holiday_attendances(self, first_day, last_day):
+        """Create attendances for public holidays from resource calendar leaves."""
+        _logger.info("Starting public holiday attendance creation process...")
+
+        employees = self.env['hr.employee'].search([
+            ('active', '=', True),
+        ])
+
+        created_count = 0
+        ResourceLeave = self.env['resource.calendar.leaves']
+
+        for employee in employees:
+            contract = self.env['hr.contract'].search([
+                ('employee_id', '=', employee.id),
+                ('state', '=', 'open'),
+                ('date_start', '<=', last_day),
+                '|',
+                ('date_end', '=', False),
+                ('date_end', '>=', first_day),
+            ], limit=1)
+
+            if not contract or not contract.resource_calendar_id:
+                continue
+
+            calendar = contract.resource_calendar_id
+            calendar_leaves = ResourceLeave.search([
+                ('calendar_id', '=', calendar.id),
+                ('resource_id', '=', False),
+                ('date_from', '<=', datetime.combine(last_day, datetime.max.time())),
+                ('date_to', '>=', datetime.combine(first_day, datetime.min.time())),
+            ])
+
+            for calendar_leave in calendar_leaves:
+                leave_start = calendar_leave.date_from.date() if isinstance(calendar_leave.date_from, datetime) else calendar_leave.date_from
+                leave_end = calendar_leave.date_to.date() if isinstance(calendar_leave.date_to, datetime) else calendar_leave.date_to
+
+                leave_start = max(leave_start, first_day)
+                leave_end = min(leave_end, last_day)
+
+                current_date = leave_start
+                while current_date <= leave_end:
+                    existing = self.search([
+                        ('employee_id', '=', employee.id),
+                        ('check_in', '>=', datetime.combine(current_date, datetime.min.time())),
+                        ('check_in', '<', datetime.combine(current_date + timedelta(days=1), datetime.min.time())),
+                    ], limit=1)
+
+                    holiday_note = (calendar_leave.name or '').strip() or False
+
+                    if existing:
+                        if existing.working_type == 'weekend':
+                            try:
+                                update_vals = {
+                                    'working_type': 'holiday',
+                                }
+                                if holiday_note:
+                                    update_vals['note'] = holiday_note
+                                existing.write(update_vals)
+                                created_count += 1
+                                _logger.debug(f"Updated weekend to holiday attendance for {employee.name} on {current_date}")
+                            except Exception as e:
+                                _logger.error(f"Failed to update public holiday attendance for {employee.name} on {current_date}: {str(e)}")
+                    else:
+                        check_in = datetime.combine(current_date, datetime.min.time().replace(hour=0, minute=0))
+                        check_out = check_in
+                        try:
+                            create_vals = {
+                                'employee_id': employee.id,
+                                'check_in': check_in,
+                                'check_out': check_out,
+                                'working_type': 'holiday',
+                            }
+                            if holiday_note:
+                                create_vals['note'] = holiday_note
+                            self.create(create_vals)
+                            created_count += 1
+                            _logger.debug(f"Created holiday attendance (0 hours) for {employee.name} on {current_date}")
+                        except Exception as e:
+                            _logger.error(f"Failed to create public holiday attendance for {employee.name} on {current_date}: {str(e)}")
+
+                    current_date += timedelta(days=1)
+
+        _logger.info(f"Public holiday attendance creation completed. Created/Updated: {created_count} records")
         return True
 
     @api.model
