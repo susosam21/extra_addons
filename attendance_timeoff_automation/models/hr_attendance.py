@@ -58,8 +58,10 @@ class HrAttendance(models.Model):
     def write(self, vals):
         """Override write to check for approved leaves and update working_type accordingly."""
         result = super(HrAttendance, self).write(vals)
-        for record in self:
-            record._check_and_update_for_approved_leave()
+        # Only check for leave update if date/employee changed to avoid unnecessary processing
+        if 'check_in' in vals or 'check_out' in vals or 'employee_id' in vals:
+            for record in self:
+                record._check_and_update_for_approved_leave()
         return result
 
     def _check_and_update_for_approved_leave(self):
@@ -82,15 +84,23 @@ class HrAttendance(models.Model):
             leave_working_type = self._get_working_type_from_leave(leave)
             leave_note = self._get_leave_note(leave)
             
-            # Update the attendance if the working_type is different
+            # FIX: Check if update is actually needed before calling write
             vals = {}
             if self.working_type != leave_working_type:
-                # Use super().write to avoid recursion
                 vals['working_type'] = leave_working_type
             if leave_note and self.note != leave_note:
                 vals['note'] = leave_note
+                
+            # Only update if there are actual changes
             if vals:
-                super(HrAttendance, self).write(vals)
+                # Use SQL update to avoid triggering write method again
+                self.env.cr.execute(
+                    "UPDATE hr_attendance SET working_type = %s, note = %s WHERE id = %s",
+                    (vals.get('working_type', self.working_type), 
+                     vals.get('note', self.note), 
+                     self.id)
+                )
+                self.invalidate_recordset(['working_type', 'note'])
                 _logger.info(f"Updated attendance for {self.employee_id.name} on {attendance_date} to {leave_working_type} due to approved leave")
 
     @api.model

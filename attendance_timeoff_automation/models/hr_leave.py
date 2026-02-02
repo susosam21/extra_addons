@@ -13,6 +13,7 @@ class HrLeaveType(models.Model):
 
     code = fields.Char(
         string='Code',
+        index=True,  # Add index for better query performance
         help='Unique code to identify the leave type (e.g., ANNUAL, SICK, HOLIDAY)'
     )
 

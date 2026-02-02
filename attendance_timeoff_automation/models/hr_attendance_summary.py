@@ -106,32 +106,31 @@ class HrAttendanceSummary(models.TransientModel):
                 record.date_to or fields.Date.today(),
             )
             
+            # FIX: Batch query instead of N+1 queries per employee
+            allocations = self.env['hr.leave.allocation'].search([
+                ('employee_id', 'in', employees.ids),
+                ('state', '=', 'validate'),
+                ('date_to', '>=', fields.Date.today()),
+            ])
+            
             total_paid = 0
             total_sick = 0
             total_comp = 0
             
-            for employee in employees:
-                # Get allocation for each leave type
-                allocations = self.env['hr.leave.allocation'].search([
-                    ('employee_id', '=', employee.id),
-                    ('state', '=', 'validate'),
-                    ('date_to', '>=', fields.Date.today()),
-                ])
+            for allocation in allocations:
+                leave_type_code = allocation.holiday_status_id.code or ''
+                leave_type_name = allocation.holiday_status_id.name.lower()
                 
-                for allocation in allocations:
-                    leave_type_code = allocation.holiday_status_id.code or ''
-                    leave_type_name = allocation.holiday_status_id.name.lower()
-                    
-                    # Calculate remaining days/hours
-                    remaining = allocation.number_of_days - allocation.leaves_taken
-                    
-                    if leave_type_code == 'ANNUAL' or 'paid' in leave_type_name or 'annual' in leave_type_name:
-                        total_paid += remaining
-                    elif leave_type_code == 'SICK' or 'sick' in leave_type_name:
-                        total_sick += remaining
-                    elif 'comp' in leave_type_name or 'overtime' in leave_type_name:
-                        # Convert days to hours for compensatory time
-                        total_comp += remaining * 8
+                # Calculate remaining days/hours
+                remaining = allocation.number_of_days - allocation.leaves_taken
+                
+                if leave_type_code == 'ANNUAL' or 'paid' in leave_type_name or 'annual' in leave_type_name:
+                    total_paid += remaining
+                elif leave_type_code == 'SICK' or 'sick' in leave_type_name:
+                    total_sick += remaining
+                elif 'comp' in leave_type_name or 'overtime' in leave_type_name:
+                    # Convert days to hours for compensatory time
+                    total_comp += remaining * 8
             
             record.total_paid_time_off = total_paid
             record.total_sick_time_off = total_sick
@@ -190,13 +189,28 @@ class HrAttendanceSummary(models.TransientModel):
 
         employees = self._filter_employees_with_contract(employees, self.date_from, self.date_to)
         
+        # FIX: Batch fetch all attendances at once instead of per employee
+        all_attendances = self.env['hr.attendance'].search([
+            ('employee_id', 'in', employees.ids),
+            ('check_in', '>=', datetime.combine(self.date_from, datetime.min.time())),
+            ('check_in', '<=', datetime.combine(self.date_to, datetime.max.time())),
+        ])
+        
+        # Group attendances by employee for faster access
+        attendances_by_employee = {}
+        for att in all_attendances:
+            if att.employee_id.id not in attendances_by_employee:
+                attendances_by_employee[att.employee_id.id] = []
+            attendances_by_employee[att.employee_id.id].append(att)
+        
         # Compute summary for each employee
         lines_data = []
         for employee in employees:
-            summary_data = self._compute_employee_summary(employee)
+            employee_attendances = attendances_by_employee.get(employee.id, [])
+            summary_data = self._compute_employee_summary(employee, employee_attendances)
             lines_data.append(summary_data)
         
-        # Create summary lines
+        # Batch create summary lines
         self.env['hr.attendance.summary.line'].create(lines_data)
         
         # Return action to display the summary
@@ -209,20 +223,26 @@ class HrAttendanceSummary(models.TransientModel):
             'target': 'current',
         }
 
-    def _compute_employee_summary(self, employee):
+    def _compute_employee_summary(self, employee, attendances=None):
         """
         Compute attendance summary for a single employee.
         Returns a dict with summary data.
+        
+        Args:
+            employee: Employee record
+            attendances: Pre-fetched attendance records (optional, fetched if not provided)
         """
         # Calculate total working days based on employee schedule
         total_working_days = self._calculate_working_days(self.date_from, self.date_to, employee)
         
-        # Get attendance records for the period
-        attendances = self.env['hr.attendance'].search([
-            ('employee_id', '=', employee.id),
-            ('check_in', '>=', datetime.combine(self.date_from, datetime.min.time())),
-            ('check_in', '<=', datetime.combine(self.date_to, datetime.max.time())),
-        ])
+        # Use pre-fetched attendances if provided, otherwise fetch them
+        if attendances is None:
+            attendances = self.env['hr.attendance'].search([
+                ('employee_id', '=', employee.id),
+                ('check_in', '>=', datetime.combine(self.date_from, datetime.min.time())),
+                ('check_in', '<=', datetime.combine(self.date_to, datetime.max.time())),
+            ])
+        # attendances is already filtered for this employee
         
         # Calculate worked days based on working_type
         worked_days = 0
@@ -286,44 +306,36 @@ class HrAttendanceSummary(models.TransientModel):
             'attendance_percentage': attendance_percentage,
         }
 
-    def _calculate_working_days(self, date_from, date_to, employee):
+    def _calculate_working_days(self, date_from, date_to, employee, contract=None):
         """
         Calculate the number of working days in the date range based on the
         employee's working schedule (resource calendar).
+        Pass contract if already fetched to avoid redundant queries.
         """
-        calendar = False
-        contract = self.env['hr.contract'].search([
-            ('employee_id', '=', employee.id),
-            ('state', '=', 'open'),
-            ('date_start', '<=', date_to),
-            '|',
-            ('date_end', '=', False),
-            ('date_end', '>=', date_from),
-        ], limit=1)
+        # Use contract if provided, otherwise fetch it
+        if not contract:
+            contract = self.env['hr.contract'].search([
+                ('employee_id', '=', employee.id),
+                ('state', '=', 'open'),
+                ('date_start', '<=', date_to),
+                '|',
+                ('date_end', '=', False),
+                ('date_end', '>=', date_from),
+            ], limit=1)
 
-        if contract and contract.resource_calendar_id:
-            calendar = contract.resource_calendar_id
-        elif hasattr(employee, 'resource_calendar_id') and employee.resource_calendar_id:
-            calendar = employee.resource_calendar_id
-
-        current_date = date_from
-        working_days = 0
-
-        while current_date <= date_to:
-            weekday = current_date.weekday()
-            if calendar:
-                is_working_day = any(
-                    int(att.dayofweek) == weekday and att.duration_days > 0
-                    for att in calendar.attendance_ids
-                )
-                if is_working_day:
-                    working_days += 1
-            else:
-                if weekday < 5:
-                    working_days += 1
-            current_date += timedelta(days=1)
-
-        return working_days
+        calendar = contract.resource_calendar_id if contract else employee.resource_calendar_id
+        
+        if not calendar:
+            # Default to 5-day week if no calendar
+            return sum(1 for d in range((date_to - date_from).days + 1) 
+                      if (date_from + timedelta(days=d)).weekday() < 5)
+        
+        # Build a set of working weekdays for faster lookup
+        working_weekdays = {int(att.dayofweek) for att in calendar.attendance_ids if att.duration_days > 0}
+        
+        # Count working days
+        return sum(1 for d in range((date_to - date_from).days + 1)
+                  if (date_from + timedelta(days=d)).weekday() in working_weekdays)
 
     @api.model
     def get_summary_data(self, date_from=None, date_to=None, employee_ids=None):
@@ -350,8 +362,9 @@ class HrAttendanceSummary(models.TransientModel):
 
         employees = self._filter_employees_with_contract(employees, date_from, date_to)
         
-        # Create temporary summary record
-        summary = self.create({
+        # FIX: Use new() instead of create() to avoid creating database records
+        # new() creates a virtual record that's not persisted to the database
+        summary = self.new({
             'date_from': date_from,
             'date_to': date_to,
         })
