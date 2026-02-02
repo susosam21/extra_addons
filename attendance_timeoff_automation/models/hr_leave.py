@@ -66,6 +66,11 @@ class HrLeaveAllocation(models.Model):
         default=False,
         help='Indicates if this allocation was created automatically by the system'
     )
+    
+    allocation_date = fields.Date(
+        string='Allocation Date',
+        help='The actual date/month this allocation represents (used for duplicate detection)'
+    )
 
     @api.model
     def _get_or_create_annual_leave_type(self):
@@ -214,11 +219,16 @@ class HrLeaveAllocation(models.Model):
             ('state', '=', 'validate'),
         ])
         
-        # Get list of months already allocated using date_from (not create_date)
+        # Get list of months already allocated using allocation_date (not date_from)
         allocated_months = set()
         for alloc in existing_allocations:
-            if alloc.date_from:
-                month_key = alloc.date_from.strftime('%Y-%m-%d')  # Full date for precise matching
+            # Use allocation_date if available (new field), fallback to date_from for old records
+            if alloc.allocation_date:
+                month_key = alloc.allocation_date.strftime('%Y-%m-%d')
+                allocated_months.add(month_key)
+            elif alloc.date_from:
+                # For backward compatibility with old allocations
+                month_key = alloc.date_from.strftime('%Y-%m-%d')
                 allocated_months.add(month_key)
         
         total_days_allocated = 0
@@ -233,8 +243,10 @@ class HrLeaveAllocation(models.Model):
         # Track allocations per year (to handle cumulative totals within the current run)
         year_totals = {}  # {year_index: cumulative_days_allocated_in_this_run}
         
-        # Loop through ALL months from allocation start date to today
-        while current_date <= today:
+        # Loop through ALL months from allocation start date to current month (inclusive)
+        # We process the entire current month, not just up to today's day
+        current_month_start = today.replace(day=1)
+        while current_date <= current_month_start:
             # Adjust to the same day as joining date, handling month-end cases
             try:
                 month_allocation_date = current_date.replace(day=allocation_day)
@@ -327,6 +339,7 @@ class HrLeaveAllocation(models.Model):
                     'number_of_days': days_to_allocate,
                     'state': 'confirm',
                     'is_auto_allocated': True,
+                    'allocation_date': month_allocation_date,  # Store the actual allocation month
                     'date_from': validity_start,
                     'date_to': validity_end,
                     'allocation_type': 'regular',

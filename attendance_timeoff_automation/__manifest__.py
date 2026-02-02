@@ -1,6 +1,6 @@
 {
     'name': 'Attendance And Time off Automation',
-    'version': '17.0.1.0.0',
+    'version': '17.0.1.0.2',
     'category': 'Human Resources/Attendances',
     'summary': 'Automate attendance tracking with working types and weekend generation',
     'description': """
