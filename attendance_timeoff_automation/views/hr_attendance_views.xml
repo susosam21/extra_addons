@@ -37,9 +37,41 @@
                 <attribute name="decoration-warning">working_type == 'holiday'</attribute>
             </xpath>
             <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="month" optional="show"/>
                 <field name="day_name" optional="show"/>
                 <field name="working_type" optional="show"/>
                 <field name="note" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Attendance Search View with Month Filter -->
+    <record id="view_attendance_search_inherit" model="ir.ui.view">
+        <field name="name">hr.attendance.search.inherit</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.hr_attendance_view_filter"/>
+        <field name="arch" type="xml">
+            <!-- Add month field to search -->
+            <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="month" string="Month"/>
+                <field name="working_type"/>
+            </xpath>
+            
+            <!-- Add month filter in the filter section -->
+            <xpath expr="//filter[@name='today']" position="after">
+                <separator/>
+                <filter string="This Month" name="this_month" 
+                    domain="[('attendance_date', '&gt;=', (context_today().replace(day=1)).strftime('%Y-%m-%d')),
+                            ('attendance_date', '&lt;=', ((context_today().replace(day=1) + relativedelta(months=1, days=-1)).strftime('%Y-%m-%d')))]"/>
+                <filter string="Last Month" name="last_month" 
+                    domain="[('attendance_date', '&gt;=', ((context_today().replace(day=1) - relativedelta(months=1)).strftime('%Y-%m-%d')),
+                            ('attendance_date', '&lt;=', ((context_today().replace(day=1) - relativedelta(days=1)).strftime('%Y-%m-%d')))]"/>
+            </xpath>
+            
+            <!-- Add groupby for month -->
+            <xpath expr="//filter[@name='groupby_employee']" position="after">
+                <filter string="Month" name="groupby_month" context="{'group_by': 'month'}"/>
+                <filter string="Working Type" name="groupby_working_type" context="{'group_by': 'working_type'}"/>
             </xpath>
         </field>
     </record>

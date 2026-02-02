@@ -28,6 +28,11 @@ class HrAttendance(models.Model):
         compute='_compute_day_name',
         store=True
     )
+    month = fields.Char(
+        string='Month',
+        compute='_compute_month',
+        store=True
+    )
     note = fields.Text(string='Note')
 
     @api.depends('check_in', 'check_out')
@@ -46,6 +51,14 @@ class HrAttendance(models.Model):
                 record.day_name = record.attendance_date.strftime('%A')
             else:
                 record.day_name = False
+
+    @api.depends('attendance_date')
+    def _compute_month(self):
+        for record in self:
+            if record.attendance_date:
+                record.month = record.attendance_date.strftime('%Y-%m')
+            else:
+                record.month = False
 
     @api.model_create_multi
     def create(self, vals_list):
