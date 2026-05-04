@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Team Activity Report April 2026 — Burnsys</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Arial,sans-serif; }
+  body { background:#f0f2f5; color:#1e293b; }
+
+  .page { max-width:960px; margin:0 auto; padding:24px 20px 40px; }
+
+  /* Header */
+  .header { background:#0A1528; border-radius:12px; padding:28px 32px;
+             display:flex; align-items:center; justify-content:space-between;
+             margin-bottom:24px; }
+  .header-left h1 { color:#fff; font-size:22px; font-weight:700; }
+  .header-left p  { color:#94a3b8; font-size:13px; margin-top:4px; }
+  .header img { height:38px; }
+  .header-badge { background:#F5921E; color:#fff; font-size:11px; font-weight:700;
+                   padding:4px 12px; border-radius:20px; margin-top:8px; display:inline-block; }
+
+  /* KPI cards */
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi { background:#fff; border-radius:10px; padding:18px 16px;
+          box-shadow:0 1px 4px rgba(0,0,0,.08); text-align:center; }
+  .kpi .val { font-size:36px; font-weight:800; color:#0A1528; line-height:1; }
+  .kpi .lbl { font-size:12px; color:#64748b; margin-top:6px; font-weight:500; }
+  .kpi .sub { font-size:11px; color:#F5921E; margin-top:3px; font-weight:600; }
+  .kpi-orange .val { color:#F5921E; }
+
+  /* Sections */
+  .section { background:#fff; border-radius:10px; padding:20px 22px;
+              box-shadow:0 1px 4px rgba(0,0,0,.08); margin-bottom:18px; }
+  .section-title { font-size:15px; font-weight:700; color:#0A1528;
+                    border-left:4px solid #F5921E; padding-left:10px;
+                    margin-bottom:16px; }
+
+  /* Bar chart */
+  .bar-row { display:flex; align-items:center; margin-bottom:10px; }
+  .bar-label { width:90px; font-size:13px; color:#374151; font-weight:500; }
+  .bar-track { flex:1; height:14px; background:#f1f5f9; border-radius:7px; overflow:hidden; margin:0 10px; }
+  .bar-fill  { height:100%; border-radius:7px; transition:width .3s; }
+  .bar-val   { width:80px; font-size:13px; font-weight:700; color:#0A1528; text-align:right; }
+  .pct { font-weight:400; color:#94a3b8; font-size:11px; }
+
+  /* Action badges */
+  .action-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .action-card { border-radius:8px; padding:14px 16px; text-align:center; }
+  .action-card.blue { background:#eff6ff; border:1px solid #bfdbfe; }
+  .action-card.green { background:#f0fdf4; border:1px solid #bbf7d0; }
+  .action-card.amber { background:#fffbeb; border:1px solid #fde68a; }
+  .action-card .av { font-size:28px; font-weight:800; }
+  .action-card.blue .av   { color:#1d4ed8; }
+  .action-card.green .av  { color:#15803d; }
+  .action-card.amber .av  { color:#b45309; }
+  .action-card .al  { font-size:12px; color:#64748b; margin-top:4px; font-weight:600; }
+  .action-card .ap  { font-size:11px; margin-top:2px; }
+  .action-card.blue .ap   { color:#3b82f6; }
+  .action-card.green .ap  { color:#22c55e; }
+  .action-card.amber .ap  { color:#f59e0b; }
+
+  /* User table */
+  .user-table { width:100%; border-collapse:collapse; }
+  .user-table th { background:#0A1528; color:#fff; padding:9px 12px;
+                    font-size:12px; text-align:left; }
+  .user-table td { padding:9px 12px; font-size:13px; border-bottom:1px solid #f1f5f9; }
+  .row-a { background:#fff; }
+  .row-b { background:#f8fafc; }
+  .td-num  { text-align:center; font-weight:700; color:#0A1528; }
+  .td-name { font-weight:600; }
+
+  /* Briefed leads */
+  .briefed-block { margin-bottom:20px; }
+  .agent-title { font-size:14px; font-weight:700; color:#0A1528; margin-bottom:8px; }
+  .cnt-badge { background:#F5921E; color:#fff; font-size:11px; font-weight:700;
+                padding:2px 8px; border-radius:10px; margin-left:8px; }
+  .briefed-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .briefed-table th { background:#f1f5f9; color:#374151; padding:7px 10px;
+                       text-align:left; font-weight:600; }
+  .briefed-table td { padding:7px 10px; border-bottom:1px solid #f8fafc; color:#374151; }
+  .briefed-table tr:hover td { background:#fef9f0; }
+  .td-contact { color:#64748b; }
+  .td-date    { color:#94a3b8; font-size:11px; }
+  .tag-prop { background:#fff7ed; color:#c2410c; font-size:10px; font-weight:700;
+               padding:2px 7px; border-radius:10px; margin-right:4px; }
+  .tag-cb   { background:#fefce8; color:#854d0e; font-size:10px; font-weight:700;
+               padding:2px 7px; border-radius:10px; }
+  .tag-none { color:#cbd5e1; }
+
+  /* Lost reason badge */
+  .lost-reason { display:inline-block; font-size:10px; font-weight:700;
+                  padding:2px 8px; border-radius:10px; }
+
+  /* Observations */
+  .obs-list { list-style:none; }
+  .obs-list li { display:flex; gap:10px; align-items:flex-start;
+                  padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:13px; }
+  .obs-list li:last-child { border-bottom:none; }
+  .obs-icon { font-size:16px; flex-shrink:0; }
+  .obs-text strong { color:#0A1528; }
+
+  /* Footer */
+  .footer { text-align:center; color:#94a3b8; font-size:11px; margin-top:24px; }
+
+  @media print {
+    * { print-color-adjust:exact !important; }
+    body { background:#fff; }
+    .page { padding:10px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <img src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQABLAEsAAD/4QDwRXhpZgAATU0AKgAAAAgABgEaAAUAAAABAAAAVgEbAAUAAAABAAAAXgEoAAMAAAABAAIAAAExAAIAAAAkAAAAZgEyAAIAAAAUAAAAiodpAAQAAAABAAAAngAAAAAAAAEsAAAAAQAAASwAAAABQWRvYmUgSWxsdXN0cmF0b3IgQ0MgMjIuMSAoV2luZG93cykAMjAyMjowODozMCAyMDowMTo0OAAABJAEAAIAAAAUAAAA1KABAAMAAAABAAEAAKACAAQAAAABAAABLKADAAQAAAABAAABLAAAAAAyMDIyOjA4OjMwIDEzOjAxOjE4AP/hCihodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IlhNUCBDb3JlIDYuMC4wIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtcDpDcmVhdGVEYXRlPSIyMDIyLTA4LTMwVDEzOjAxOjE4IiB4bXA6TW9kaWZ5RGF0ZT0iMjAyMi0wOC0zMFQyMDowMTo0OCI+IDxkYzp0aXRsZT4gPHJkZjpBbHQ+IDxyZGY6bGkgeG1sOmxhbmc9IngtZGVmYXVsdCI+V2ViPC9yZGY6bGk+IDwvcmRmOkFsdD4gPC9kYzp0aXRsZT4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPD94cGFja2V0IGVuZD0idyI/PgD/7QBQUGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAABccAVoAAxslRxwCAAACAAIcAgUAA1dlYgA4QklNBCUAAAAAABCHo1nKRx+uyLdQ2O45lgbm/8AAEQgBLAEsAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMAAgICAgICAwICAwUDAwMFBgUFBQUGCAYGBgYGCAoICAgICAgKCgoKCgoKCgwMDAwMDA4ODg4ODw8PDw8PDw8PD//bAEMBAgICBAQEBwQEBxALCQsQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEP/dAAQAE//aAAwDAQACEQMRAD8A/DCb/XSf7zfzqKpZv9dJ/vN/Ooq+8PLCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK7vwt/x4S/9dT/AOgrXCV3fhb/AI8Jf+up/wDQVpSA/9D8MJv9dJ/vN/Ooqlm/10n+8386ir7w8sKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAru/C3/HhL/11P8A6CtcJXd+Fv8Ajwl/66n/ANBWlID/0fwwm/10n+8386iqWb/XSf7zfzqKvvDywooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACu78Lf8eEv/XU/wDoK1wld34W/wCPCX/rqf8A0FaUgP/S/DCb/XSf7zfzqKpZv9dJ/vN/Ooq+8PLCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK7vwt/x4S/9dT/AOgrXCV3fhb/AI8Jf+up/wDQVpSA/9P8MJv9dJ/vN/Ooqlm/10n+8386ir7w8sKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAru/C3/HhL/11P8A6CtcJXd+Fv8Ajwl/66n/ANBWlID/1Pwwm/10n+8386iqWb/XSf7zfzqKvvDywooooAKKKKACiiigAooooAKKKKACiiigAooooAKK7nwh8M/iD49kCeDvD95qq5wZIoj5Q+srYQfi1fSGgfsM/GzV1WTUjpujBuq3FyZHH4Qq4/8AHq+Szzj3Jcsbjj8ZCEuzkub/AMB3/A9/LOFcyxi5sLh5SXdJ2+/Y+NqK/Q23/wCCeHjSRMz+MNOjf0W3mYfmSv8AKqGo/wDBPL4owxl9J8RaRekdFfz4Sfx8tx+tfJQ8duEZS5VmEb+akl97ikezV8Ns8guaWGf3r/M+AaK+kfF37JH7QHg6N7i78Ky6lbR5Jl050vBgd9kZ8z80r51uba5sriS0vYXt54jh45FKOp9CrYIP1r9AybiTL8xh7TL8RCqv7klK3rZu3zPlsdleJwsuXE05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AooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK7vwt/x4S/9dT/AOgrXCV3fhb/AI8Jf+up/wDQVpSA/9b8MJv9dJ/vN/Ooqlm/10n+8386ir7w8sKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAru/C3/HhL/11P8A6CtcJXd+Fv8Ajwl/66n/ANBWlID/1/wwm/10n+8386iqWb/XSf7zfzqKvvDywooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACu78Lf8eEv/XU/wDoK1wld34W/wCPCX/rqf8A0FaUgP/Q/DCb/XSf7zfzqKpZv9dJ/vN/Ooq+8PLCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK7vwt/x4S/9dT/AOgrXCV3fhb/AI8Jf+up/wDQVpSA/9H8MJv9dJ/vN/Ooqlm/10n+8386ir7w8sKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAru/C3/HhL/11P8A6CtcJXd+Fv8Ajwl/66n/ANBWlID/2Q==' alt='Burnsys'>
+      <h1 style="margin-top:10px;">Team Activity Report</h1>
+      <p>April 2026 Leads · Generated on 30 April 2026</p>
+      <span class="header-badge">CRM Odoo — Burnsys</span>
+    </div>
+    <div style="text-align:right;">
+      <div style="color:#94a3b8;font-size:12px;">Period</div>
+      <div style="color:#fff;font-size:28px;font-weight:800;">April 2026</div>
+      <div style="color:#F5921E;font-size:13px;font-weight:600;">01 – 30 April 2026</div>
+    </div>
+  </div>
+
+  <!-- KPI Cards — Row 1: Overview -->
+  <div style="margin-bottom:8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Overview</div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;">
+    <div class="kpi" style="border-top:3px solid #0A1528">
+      <div class="val">537</div>
+      <div class="lbl">Total Leads Injected</div>
+      <div class="sub">Active + Lost · April 2026</div>
+    </div>
+    <div class="kpi kpi-orange" style="border-top:3px solid #F5921E">
+      <div class="val">159</div>
+      <div class="lbl">Worked by Team</div>
+      <div class="sub">30% of total injected</div>
+    </div>
+    <div class="kpi" style="border-top:3px solid #94a3b8">
+      <div class="val" style="color:#64748b">378</div>
+      <div class="lbl">Untouched (pool)</div>
+      <div class="sub" style="color:#94a3b8">70% — pending action</div>
+    </div>
+  </div>
+
+  <!-- KPI Cards — Row 2: Team breakdown -->
+  <div style="margin-bottom:8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Team activity breakdown (159 leads worked)</div>
+  <div class="kpi-grid" style="margin-bottom:24px;">
+    <div class="kpi kpi-orange">
+      <div class="val">80</div>
+      <div class="lbl">Contacted (active)</div>
+      <div class="sub">15% of total injected</div>
+    </div>
+    <div class="kpi kpi-orange">
+      <div class="val">30</div>
+      <div class="lbl">Moved to Briefed</div>
+      <div class="sub">6% of total injected</div>
+    </div>
+    <div class="kpi">
+      <div class="val">26</div>
+      <div class="lbl">Proposal to Send</div>
+      <div class="sub">5% of total injected</div>
+    </div>
+    <div class="kpi" style="border-top:3px solid #dc2626">
+      <div class="val" style="color:#dc2626">79</div>
+      <div class="lbl">Lost</div>
+      <div class="sub" style="color:#dc2626">15% of total injected</div>
+    </div>
+  </div>
+
+  <!-- Pipeline Stages -->
+  <div class="section">
+    <div class="section-title">Pipeline Stage Breakdown</div>
+    
+        <div class="bar-row">
+          <div class="bar-label">New</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:93%;background:#6b7280"></div>
+          </div>
+          <div class="bar-val">428 <span class="pct">(93%)</span></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Briefed</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:7%;background:#F5921E"></div>
+          </div>
+          <div class="bar-val">30 <span class="pct">(7%)</span></div>
+        </div>
+  </div>
+
+  <!-- Actions taken -->
+  <div class="section">
+    <div class="section-title">Actions Taken on Leads</div>
+    <div class="action-grid">
+      <div class="action-card blue">
+        <div class="av">80</div>
+        <div class="al">Contacted</div>
+        <div class="ap">15% of total injected</div>
+      </div>
+      <div class="action-card amber">
+        <div class="av">53</div>
+        <div class="al">Call Back Scheduled</div>
+        <div class="ap">10% of total injected</div>
+      </div>
+      <div class="action-card green">
+        <div class="av">26</div>
+        <div class="al">Proposal to Send</div>
+        <div class="ap">5% of total injected</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- By salesperson -->
+  <div class="section">
+    <div class="section-title">Breakdown by Salesperson</div>
+    <table class="user-table">
+      <thead>
+        <tr>
+          <th>Salesperson</th>
+          <th style="text-align:center">Assigned Leads</th>
+          <th style="text-align:center">% of Total</th>
+          <th style="text-align:center">Moved to Briefed</th>
+          <th style="text-align:center">Pending Activities</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-a">
+          <td class="td-name">Fathi</td>
+          <td class="td-num">294</td>
+          <td class="td-num">64%</td>
+          <td class="td-num">0</td>
+          <td class="td-num">1</td>
+        </tr>
+        <tr class="row-b">
+          <td class="td-name">Jelly Montierde Kyprianou</td>
+          <td class="td-num">85</td>
+          <td class="td-num">19%</td>
+          <td class="td-num">18</td>
+          <td class="td-num">20</td>
+        </tr>
+        <tr class="row-a">
+          <td class="td-name">Michael Bassem</td>
+          <td class="td-num">72</td>
+          <td class="td-num">16%</td>
+          <td class="td-num">12</td>
+          <td class="td-num">6</td>
+        </tr>
+        <tr class="row-b">
+          <td class="td-name">Maria Gloria Gloria</td>
+          <td class="td-num">6</td>
+          <td class="td-num">1%</td>
+          <td class="td-num">0</td>
+          <td class="td-num">1</td>
+        </tr>
+        <tr class="row-a">
+          <td class="td-name">Md Hasan Mahmud Rajan</td>
+          <td class="td-num">1</td>
+          <td class="td-num">0%</td>
+          <td class="td-num">0</td>
+          <td class="td-num">0</td>
+        </tr></tbody>
+    </table>
+  </div>
+
+  <!-- Briefed leads detail -->
+  <div class="section">
+    <div class="section-title">Briefed Leads — Detail (30 leads)</div>
+    
+        <div class="briefed-block">
+          <h4 class="agent-title">👤 Jelly Montierde Kyprianou <span class="cnt-badge">18 leads</span></h4>
+          <table class="briefed-table">
+            <thead><tr>
+              <th>Company</th><th>Email</th><th>Phone</th>
+              <th>Action</th><th>Updated</th>
+            </tr></thead>
+            <tbody>
+            <tr>
+              <td>Orchid Architecture & Engineering Consultants</td>
+              <td class="td-contact">info@orchidec.com</td>
+              <td class="td-contact">+97142207760</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-30</td>
+            </tr>
+            <tr>
+              <td>Abdulhameed Al Jasmi Advocates</td>
+              <td class="td-contact">info@ajlc.ae</td>
+              <td class="td-contact">+97142251011</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>Business and Beyond Consulting LLC FZ</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971554475703</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>EDMAC Engineering Consultant</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97142566993</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>Interior Design Company Dubai</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971552369138</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Executive Zone Business Center</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971582583505</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Studio Seg</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971563296902</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>First Good Idea General Trading LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97142778237</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Al Reyami Advocates and Muhyealdeen Internati</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97145756033</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Arch Line Engineering Consultants</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144532939</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>SABAT Architectural Consultancy</td>
+              <td class="td-contact">info@sabat.me</td>
+              <td class="td-contact">+97145148924</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>e-Home Eng. Consultancy</td>
+              <td class="td-contact">info@ehomeeng,com</td>
+              <td class="td-contact">+97142959959</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Bel Yoahah Architectural & Engineering Consul</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97142232311</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>Contrast Advertising LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144224688</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>Empleo Consultants</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971585768468</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>Blue Box Interiors LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97142769283</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-17</td>
+            </tr>
+            <tr>
+              <td>MHM Engineering Consultancy</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971555996880</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-17</td>
+            </tr>
+            <tr>
+              <td>Noble International General Trading LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97145542947</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-17</td>
+            </tr></tbody>
+          </table>
+        </div>
+        <div class="briefed-block">
+          <h4 class="agent-title">👤 Michael Bassem <span class="cnt-badge">12 leads</span></h4>
+          <table class="briefed-table">
+            <thead><tr>
+              <th>Company</th><th>Email</th><th>Phone</th>
+              <th>Action</th><th>Updated</th>
+            </tr></thead>
+            <tbody>
+            <tr>
+              <td>Crown Capital Finance</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971552135300</td>
+              <td><span class="tag-prop">Send Proposal</span><span class="tag-cb">Call Back</span></td>
+              <td class="td-date">2026-04-30</td>
+            </tr>
+            <tr>
+              <td>FOCAL SHIPPING SERVICES</td>
+              <td class="td-contact">admin.dxb@﻿﻿focalshipping.com</td>
+              <td class="td-contact">+97145542284</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>CONVENTION 360 DMCC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97145544673</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>Stomping 360 Digital Marketing Agency Dubai</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971504826917</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>MNK Auditing</td>
+              <td class="td-contact">mail@mnkauditing.com</td>
+              <td class="td-contact">+971 4 244 3615</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>DY Lawyers & Legal Consultants - Commerical a</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971551470302</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Al Rowad International IP</td>
+              <td class="td-contact">info@alrowadip.com</td>
+              <td class="td-contact">—</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>PAL DIGITAL MARKETING COMPANY</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971567741339</td>
+              <td><span class="tag-none">—</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Housecall</td>
+              <td class="td-contact">business@housecall.ae</td>
+              <td class="td-contact">+971 600 56 6119</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>NJQ & Associates</td>
+              <td class="td-contact">info@qumsieh.com</td>
+              <td class="td-contact">+971 4 362 4844</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Karawani & Co</td>
+              <td class="td-contact">info@karawanico.com</td>
+              <td class="td-contact">+971 4 430 4091</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>Everest Chartered Accountants LLC | Everest A</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144372228</td>
+              <td><span class="tag-prop">Send Proposal</span></td>
+              <td class="td-date">2026-04-17</td>
+            </tr></tbody>
+          </table>
+        </div>
+  </div>
+
+  <!-- Lost leads section -->
+  <div class="section">
+    <div class="section-title" style="border-left-color:#dc2626">Lost Leads — Reasons (79 leads)</div>
+    
+        <div class="bar-row">
+          <div class="bar-label">Not interested at all</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:62%;background:#dc2626"></div>
+          </div>
+          <div class="bar-val">49 <span class="pct">(62%)</span></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Cannot be reach</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:33%;background:#ea580c"></div>
+          </div>
+          <div class="bar-val">26 <span class="pct">(33%)</span></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Already have an IT service provider</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:4%;background:#ca8a04"></div>
+          </div>
+          <div class="bar-val">3 <span class="pct">(4%)</span></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Company Closed</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:1%;background:#64748b"></div>
+          </div>
+          <div class="bar-val">1 <span class="pct">(1%)</span></div>
+        </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title" style="border-left-color:#dc2626">Lost Leads — Detail by Salesperson</div>
+    
+        <div class="briefed-block">
+          <h4 class="agent-title">👤 Michael Bassem <span class="cnt-badge" style="background:#dc2626">38 lost</span></h4>
+          <table class="briefed-table">
+            <thead><tr>
+              <th>Company</th><th>Email</th><th>Phone</th>
+              <th>Lost Reason</th><th>Date</th>
+            </tr></thead>
+            <tbody>
+            <tr>
+              <td>Glitz Business Consultancy</td>
+              <td class="td-contact">info@glitzdubai.com</td>
+              <td class="td-contact">+971 4 262 4777</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-30</td>
+            </tr>
+            <tr>
+              <td>Forerunners Corporate Services | Dubai Compan</td>
+              <td class="td-contact">vani@﻿﻿forerunnersglobal.com</td>
+              <td class="td-contact">+971521113758</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-30</td>
+            </tr>
+            <tr>
+              <td>Enum Digital - Website Development & Digital </td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971509757881</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-30</td>
+            </tr>
+            <tr>
+              <td>Lawyers in Dubai - Expert Lawyers & Advocate </td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971507479570</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>lawyers and legal consultants</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971501425726</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>Zas Tech LLC</td>
+              <td class="td-contact">sales@zastechllc.com</td>
+              <td class="td-contact">+971 4 263 6654</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>Hustle media Production | Dubai video product</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971 58 545 8845</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>INCREDIBLE HUMAN RESOURCE CONSULTANCY</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971525938475</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>Acrylax Decoration LLC</td>
+              <td class="td-contact">ahmad@acrylax.com</td>
+              <td class="td-contact">+971 4 564 6491</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>Commercle Digital Hub</td>
+              <td class="td-contact">admin@commercle.com</td>
+              <td class="td-contact">+971 4 529 9095</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>Alameeri Legal Consultants</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971501152345</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>SharpEagle Technologies</td>
+              <td class="td-contact">sales@sharpeagle.com</td>
+              <td class="td-contact">+971 4 454 1054</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>Futureskills HR Recruitment Services LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97145667682</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>PARISIANS GENERAL TRADING CO LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971509292488</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>Power Recruitment</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97148744411</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Adcourt Legal Consultancy</td>
+              <td class="td-contact">georgiana@adcourt.com</td>
+              <td class="td-contact">+971 4 343 1832</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Star Orion Shipping LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971503450131</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>The Picture Bar</td>
+              <td class="td-contact">click@thepicturebar.com</td>
+              <td class="td-contact">+971503890939</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Zone Seven Business Incubator L.L.C.</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97145756141</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Celeste Media Film Productions</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971509878724</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Union Insurance</td>
+              <td class="td-contact">aniket.g@unioninsurance.ae</td>
+              <td class="td-contact">+971 4 378 7777</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Arctic Solutions DMCC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971567818934</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Pravo Legal Consultancy</td>
+              <td class="td-contact">pravo@pravodubai.com</td>
+              <td class="td-contact">+971 4 321 9321</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Novobytes</td>
+              <td class="td-contact">ahmedm@novobytes.com</td>
+              <td class="td-contact">+971 4 239 3884</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Homedge Development</td>
+              <td class="td-contact">hello@homedge.ae</td>
+              <td class="td-contact">+971 4 663 3434</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Carlton & Co Real Estate</td>
+              <td class="td-contact">info@carltonandco.ae</td>
+              <td class="td-contact">+971 4 436 5559</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Adweb Studio</td>
+              <td class="td-contact">info@adwebstudio.com</td>
+              <td class="td-contact">+971 4 559 6295</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>SKYWAYS EXPRESS TRANSPORT LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971554129794</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Overview - Digital marketing management agenc</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971508371026</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Top Trust Foodstuff Trading LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971506034400</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Cactimedia</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97143609966</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Ultimate Accounting</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971551565341</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>Gates Design LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144288871</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>ANW Real Estate</td>
+              <td class="td-contact">khurram@anw.ae</td>
+              <td class="td-contact">+971 56 225 6413</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>SAMS Real Estate</td>
+              <td class="td-contact">zafar@sams.ae</td>
+              <td class="td-contact">+971 4 557 8812</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>AJITH M LEGAL CONSULTANCY</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971557009014</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>SHS IT SOLUTIONS</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971567943243</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>Rawabi Interior Design</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971525254646</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr></tbody>
+          </table>
+        </div>
+        <div class="briefed-block">
+          <h4 class="agent-title">👤 Jelly Montierde Kyprianou <span class="cnt-badge" style="background:#dc2626">36 lost</span></h4>
+          <table class="briefed-table">
+            <thead><tr>
+              <th>Company</th><th>Email</th><th>Phone</th>
+              <th>Lost Reason</th><th>Date</th>
+            </tr></thead>
+            <tbody>
+            <tr>
+              <td>Direct Line Shipping & Transport Agency LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97145703058</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>Company Setup</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971544984985</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>Biznis.AE | Business Setup Dubai - Free Zone </td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971586166027</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>Unlimited Petrochemical Trading Company</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97148187202</td>
+              <td><span class="lost-reason" style="background:#f1f5f9;color:#64748b">Company Closed</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>Noor Al Ebdaa Engineering Consultants نور الإ</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971506009110</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>Fourth Dimension Engineering</td>
+              <td class="td-contact">info@4d-engineering.net</td>
+              <td class="td-contact">+971 4 283 0300</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-28</td>
+            </tr>
+            <tr>
+              <td>High Performance Products Trading</td>
+              <td class="td-contact">info@hppt-me.com</td>
+              <td class="td-contact">+971 4 453 4693</td>
+              <td><span class="lost-reason" style="background:#fefce8;color:#ca8a04">Already have an IT service provider</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>Millennium International General Trading LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97142432780</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>Casa Bloom Interiors Decoration L.L.C</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971502891800</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>COMINC Consulting - Recruitment Agency in Dub</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971558308340</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-27</td>
+            </tr>
+            <tr>
+              <td>ISBC - Integrated Solutions Business Consulta</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97143340151</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>Feasible Shipping and Logistics Services LLC </td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971504858228</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-24</td>
+            </tr>
+            <tr>
+              <td>V DigitalX - Digital Marketing Agency in Duba</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971526009209</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>HB Space Business Center</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971588442233</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Azinova Technologies LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97143597000</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Gamayun Consultancy</td>
+              <td class="td-contact">venice.alyana@gamayunconsultancy.com</td>
+              <td class="td-contact">—</td>
+              <td><span class="lost-reason" style="background:#fefce8;color:#ca8a04">Already have an IT service provider</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>ProIN IT Solutions</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971523914973</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>InfoSpec Technologies</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971563953123</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Business 4 Business Consultancy DMCC (B4B)</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971558533385</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>DEEJOS Interiors LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971509394844</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>The Brand Tribe - Marketing Agency</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971529107870</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-22</td>
+            </tr>
+            <tr>
+              <td>Vision Engineering Consultants</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144341313</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Bin Abed Architectural and Engineering Consul</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144259301</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Just Spectrum - Home & Villa Renovation Exper</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971559512784</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Drakken DMCC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144218332</td>
+              <td><span class="lost-reason" style="background:#fefce8;color:#ca8a04">Already have an IT service provider</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Urban Habitat Architectural Consultants</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97144274094</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>STF Consultancy. (Legal. Corporate. Real Esta</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971543143884</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>InterPoint Management Consultancy - Company R</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971589341214</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>Bright Eazy General Trading LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97143336955</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-20</td>
+            </tr>
+            <tr>
+              <td>Zaidi Accountants - Audit Firms in Dubai UAE </td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971569841106</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>Lexico Global Chartered Accountants LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971504081860</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>Consult Corporated Dubai</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971586201799</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>One Square DMCC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971527439640</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-16</td>
+            </tr>
+            <tr>
+              <td>Health Bridge Consultancy</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971561551505</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-15</td>
+            </tr>
+            <tr>
+              <td>Arabian Prints</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971551668588</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-15</td>
+            </tr>
+            <tr>
+              <td>Kurum Group of Companies LLC FZ</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971 4 222 4749</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-15</td>
+            </tr></tbody>
+          </table>
+        </div>
+        <div class="briefed-block">
+          <h4 class="agent-title">👤 Fathi <span class="cnt-badge" style="background:#dc2626">5 lost</span></h4>
+          <table class="briefed-table">
+            <thead><tr>
+              <th>Company</th><th>Email</th><th>Phone</th>
+              <th>Lost Reason</th><th>Date</th>
+            </tr></thead>
+            <tbody>
+            <tr>
+              <td>MKS GENERAL TRADING LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">—</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-29</td>
+            </tr>
+            <tr>
+              <td>Serendipity By Design LLC</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+97145595427</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-23</td>
+            </tr>
+            <tr>
+              <td>Urban Hire Recruitment Agency</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971585701140</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-21</td>
+            </tr>
+            <tr>
+              <td>Mayfair Recruitment</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971585946009</td>
+              <td><span class="lost-reason" style="background:#fff7ed;color:#ea580c">Cannot be reach</span></td>
+              <td class="td-date">2026-04-15</td>
+            </tr>
+            <tr>
+              <td>Escalate Real Estate L.L.C.</td>
+              <td class="td-contact">—</td>
+              <td class="td-contact">+971525682300</td>
+              <td><span class="lost-reason" style="background:#fef2f2;color:#dc2626">Not interested at all</span></td>
+              <td class="td-date">2026-04-15</td>
+            </tr></tbody>
+          </table>
+        </div>
+  </div>
+
+  <!-- Key Takeaways -->
+  <div class="section">
+    <div class="section-title">Key Takeaways</div>
+    <ul class="obs-list">
+      <li>
+        <span class="obs-icon">📊</span>
+        <span class="obs-text"><strong>The team worked on 159 out of 537 injected leads (30%)</strong> — 80 contacted + 79 lost. The remaining 378 leads are untouched and available for distribution.</span>
+      </li>
+      <li>
+        <span class="obs-icon">🔴</span>
+        <span class="obs-text"><strong>79 leads lost (15%)</strong> — "Not interested" (49) and "Cannot be reached" (26). The 26 unreachable leads can be retried via email campaign.</span>
+      </li>
+      <li>
+        <span class="obs-icon">📋</span>
+        <span class="obs-text"><strong>26 leads</strong> are tagged "Send Proposal" — commercial proposals should be sent as a priority.</span>
+      </li>
+      <li>
+        <span class="obs-icon">📞</span>
+        <span class="obs-text"><strong>53 leads</strong> are awaiting a callback — to be actioned this week.</span>
+      </li>
+      <li>
+        <span class="obs-icon">📧</span>
+        <span class="obs-text"><strong>354 active leads</strong> have no email address — enrichment required before any email campaign.</span>
+      </li>
+      <li>
+        <span class="obs-icon">🎯</span>
+        <span class="obs-text"><strong>0 leads Won or at Proposal stage</strong> — next priority: advance the 30 Briefed leads to Proposal.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    Burnsys Computer Network & Infrastructure LLC · Business Bay, Dubai, UAE<br>
+    contact@burnsys.io · www.burnsys.io · Automatically generated from Odoo CRM
+  </div>
+
+</div>
+</body>
+</html>
