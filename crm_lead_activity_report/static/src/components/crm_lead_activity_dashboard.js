@@ -78,4 +78,12 @@ export class CrmLeadActivityDashboard extends Component {
     }
 }
 
-registry.category("actions").add("crm_lead_activity_dashboard_action", CrmLeadActivityDashboard);
+const actionRegistry = registry.category("actions");
+
+// Register both canonical and namespaced tags to avoid client action lookup mismatches.
+if (!actionRegistry.contains("crm_lead_activity_dashboard_action")) {
+    actionRegistry.add("crm_lead_activity_dashboard_action", CrmLeadActivityDashboard);
+}
+if (!actionRegistry.contains("crm_lead_activity_report.crm_lead_activity_dashboard_action")) {
+    actionRegistry.add("crm_lead_activity_report.crm_lead_activity_dashboard_action", CrmLeadActivityDashboard);
+}

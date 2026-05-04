@@ -1,6 +1,6 @@
 {
     'name': 'CRM Lead Activity Report',
-    'version': '17.0.1.0.0',
+    'version': '17.0.1.0.1',
     'category': 'Sales/CRM',
     'summary': 'Detailed lead report with connection timestamps and note analysis',
     'description': """
