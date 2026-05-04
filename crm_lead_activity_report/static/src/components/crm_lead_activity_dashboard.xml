@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="crm_lead_activity_report.CrmLeadActivityDashboard">
+        <div class="o_crm_lead_activity_dashboard">
+            <div class="dashboard-shell">
+                <div class="dashboard-header">
+                    <div class="header-left">
+                        <h2>Team Activity Report</h2>
+                        <p>Leads Report · Generated from Odoo CRM</p>
+                        <span class="header-badge">CRM Odoo</span>
+                    </div>
+                    <div class="header-right">
+                        <div class="period-label">Period</div>
+                        <div class="period-main"><t t-esc="state.dateFrom"/> - <t t-esc="state.dateTo"/></div>
+                    </div>
+                </div>
+
+                <div class="filters-row">
+                    <div>
+                        <label>From</label>
+                        <input type="date" class="form-control" t-model="state.dateFrom"/>
+                    </div>
+                    <div>
+                        <label>To</label>
+                        <input type="date" class="form-control" t-model="state.dateTo"/>
+                    </div>
+                    <div>
+                        <label>Team</label>
+                        <select class="form-select" t-on-change="onTeamChange">
+                            <option value="">All Teams</option>
+                            <option t-foreach="state.data.teams" t-as="team" t-key="team.id" t-att-value="team.id" t-att-selected="state.teamId === team.id">
+                                <t t-esc="team.name"/>
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Salesperson</label>
+                        <select class="form-select" t-on-change="onUserChange">
+                            <option value="">All Salespersons</option>
+                            <option t-foreach="state.data.users" t-as="user" t-key="user.id" t-att-value="user.id" t-att-selected="state.userId === user.id">
+                                <t t-esc="user.name"/>
+                            </option>
+                        </select>
+                    </div>
+                    <div class="archived-wrap">
+                        <label class="checkbox-wrap">
+                            <input type="checkbox" t-on-change="onArchivedToggle"/>
+                            Include Archived
+                        </label>
+                    </div>
+                    <div class="action-wrap">
+                        <button class="btn btn-primary" t-on-click="refresh">Refresh</button>
+                    </div>
+                </div>
+
+                <div t-if="state.loading" class="loading-block">
+                    <i class="fa fa-spinner fa-spin"/> Loading dashboard...
+                </div>
+
+                <t t-else="">
+                    <div class="block-title">Overview</div>
+                    <div class="kpi-row">
+                        <div class="kpi-card">
+                            <div class="kpi-value" t-esc="state.data.kpis.total"/>
+                            <div class="kpi-label">Total Leads Injected</div>
+                            <div class="kpi-sub">Active + Lost</div>
+                        </div>
+                        <div class="kpi-card orange">
+                            <div class="kpi-value" t-esc="state.data.kpis.worked"/>
+                            <div class="kpi-label">Worked by Team</div>
+                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.worked / state.data.kpis.total) * 100)"/>% of total injected</div>
+                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
+                        </div>
+                        <div class="kpi-card gray">
+                            <div class="kpi-value" t-esc="state.data.kpis.untouched"/>
+                            <div class="kpi-label">Untouched (Pool)</div>
+                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.untouched / state.data.kpis.total) * 100)"/>% — pending action</div>
+                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% — pending action</div>
+                        </div>
+                    </div>
+
+                    <div class="block-title">Team Activity Breakdown</div>
+                    <div class="kpi-row kpi-row-4">
+                        <div class="kpi-card orange">
+                            <div class="kpi-value" t-esc="state.data.kpis.contacted"/>
+                            <div class="kpi-label">Contacted (active)</div>
+                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.contacted / state.data.kpis.total) * 100)"/>% of total injected</div>
+                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
+                        </div>
+                        <div class="kpi-card amber">
+                            <div class="kpi-value" t-esc="state.data.kpis.moved_to_briefed"/>
+                            <div class="kpi-label">Moved to Briefed</div>
+                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.moved_to_briefed / state.data.kpis.total) * 100)"/>% of total injected</div>
+                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
+                        </div>
+                        <div class="kpi-card blue">
+                            <div class="kpi-value" t-esc="state.data.kpis.proposal_to_send"/>
+                            <div class="kpi-label">Proposal to Send</div>
+                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.proposal_to_send / state.data.kpis.total) * 100)"/>% of total injected</div>
+                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
+                        </div>
+                        <div class="kpi-card red">
+                            <div class="kpi-value" t-esc="state.data.kpis.lost"/>
+                            <div class="kpi-label">Lost</div>
+                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.lost / state.data.kpis.total) * 100)"/>% of total injected</div>
+                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Actions Taken on Leads</h4>
+                        <div class="action-grid">
+                            <div class="action-card blue">
+                                <div class="av" t-esc="state.data.kpis.contacted"/>
+                                <div class="al">Contacted</div>
+                            </div>
+                            <div class="action-card amber">
+                                <div class="av" t-esc="state.data.kpis.call_back"/>
+                                <div class="al">Call Back Scheduled</div>
+                            </div>
+                            <div class="action-card green">
+                                <div class="av" t-esc="state.data.kpis.proposal_to_send"/>
+                                <div class="al">Proposal to Send</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Pipeline Stage Breakdown</h4>
+                        <div class="bar-list">
+                            <div class="bar-row" t-foreach="state.data.stages" t-as="stage" t-key="stage.name">
+                                <div class="bar-label" t-esc="stage.name"/>
+                                <div class="bar-track">
+                                    <div class="bar-fill" t-attf-style="width: {{ stage.pct }}%"/>
+                                </div>
+                                <div class="bar-val"><t t-esc="stage.count"/> (<t t-esc="stage.pct"/>%)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Breakdown by Salesperson</h4>
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Salesperson</th>
+                                    <th>Assigned</th>
+                                    <th>% of Total</th>
+                                    <th>Moved to Briefed</th>
+                                    <th>Pending Activities</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="state.data.by_salesperson" t-as="s" t-key="s.salesperson">
+                                    <td><t t-esc="s.salesperson"/></td>
+                                    <td><t t-esc="s.assigned"/></td>
+                                    <td><t t-esc="s.pct_total"/>%</td>
+                                    <td><t t-esc="s.moved_to_briefed"/></td>
+                                    <td><t t-esc="s.pending_activities"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Briefed Leads — Detail</h4>
+                        <div t-if="state.data.briefed_by_salesperson.length === 0" class="text-muted">No briefed leads in selected filters.</div>
+                        <div t-foreach="state.data.briefed_by_salesperson" t-as="grp" t-key="grp.salesperson" class="group-block">
+                            <h5><t t-esc="grp.salesperson"/> (<t t-esc="grp.count"/> leads)</h5>
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Company</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>Action</th>
+                                        <th>Updated</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="grp.leads" t-as="lead" t-key="lead.company + lead.updated">
+                                        <td><t t-esc="lead.company"/></td>
+                                        <td><t t-esc="lead.email"/></td>
+                                        <td><t t-esc="lead.phone"/></td>
+                                        <td>
+                                            <t t-foreach="lead.actions" t-as="act" t-key="lead.company + act">
+                                                <span class="pill pill-orange" t-esc="act"/>
+                                            </t>
+                                        </td>
+                                        <td><t t-esc="lead.updated"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Lost Leads — Reasons</h4>
+                        <div class="bar-list">
+                            <div class="bar-row" t-foreach="state.data.lost_reasons" t-as="reason" t-key="reason.name">
+                                <div class="bar-label" t-esc="reason.name"/>
+                                <div class="bar-track">
+                                    <div class="bar-fill red" t-attf-style="width: {{ reason.pct }}%"/>
+                                </div>
+                                <div class="bar-val"><t t-esc="reason.count"/> (<t t-esc="reason.pct"/>%)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Lost Leads — Detail by Salesperson</h4>
+                        <div t-if="state.data.lost_by_salesperson.length === 0" class="text-muted">No lost leads in selected filters.</div>
+                        <div t-foreach="state.data.lost_by_salesperson" t-as="grp" t-key="grp.salesperson" class="group-block">
+                            <h5><t t-esc="grp.salesperson"/> (<t t-esc="grp.count"/> lost)</h5>
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Company</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>Lost Reason</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="grp.leads" t-as="lead" t-key="lead.company + lead.date">
+                                        <td><t t-esc="lead.company"/></td>
+                                        <td><t t-esc="lead.email"/></td>
+                                        <td><t t-esc="lead.phone"/></td>
+                                        <td><span class="pill pill-red" t-esc="lead.lost_reason"/></td>
+                                        <td><t t-esc="lead.date"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Key Takeaways</h4>
+                        <ul class="takeaways">
+                            <li t-foreach="state.data.observations" t-as="item" t-key="item">
+                                <t t-esc="item"/>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Lead Details and Issues (Internal Notes)</h4>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Lead</th>
+                                        <th>Salesperson</th>
+                                        <th>Connected</th>
+                                        <th>Contacted</th>
+                                        <th>Lost Reason</th>
+                                        <th>Issue Summary</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-if="state.data.lines.length === 0">
+                                        <td colspan="6" class="text-center">No leads found for selected filters.</td>
+                                    </tr>
+                                    <tr t-foreach="state.data.lines" t-as="line" t-key="line.lead_id">
+                                        <td>
+                                            <div class="lead-name"><t t-esc="line.lead_name"/></div>
+                                            <div class="lead-sub"><t t-esc="line.company_name || '-'"/></div>
+                                        </td>
+                                        <td><t t-esc="line.user_name || '-'"/></td>
+                                        <td>
+                                            <div><strong>First:</strong> <t t-esc="line.first_interaction_at || '-'"/></div>
+                                            <div><strong>Last:</strong> <t t-esc="line.last_interaction_at || '-'"/></div>
+                                        </td>
+                                        <td>
+                                            <span t-if="line.contacted_tag" class="pill pill-blue">Contacted</span>
+                                            <span t-if="!line.contacted_tag">-</span>
+                                        </td>
+                                        <td>
+                                            <span t-if="line.lost_reason" class="pill pill-red"><t t-esc="line.lost_reason"/></span>
+                                            <span t-if="!line.lost_reason">-</span>
+                                        </td>
+                                        <td>
+                                            <div><t t-esc="line.issue_summary || line.latest_internal_note || '-'"/></div>
+                                            <small>Internal notes: <t t-esc="line.internal_note_count"/></small>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

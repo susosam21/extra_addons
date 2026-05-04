@@ -135,28 +135,7 @@ class CrmLeadActivityReportWizard(models.TransientModel):
                 snippets.append(compact[:220])
         return ' | '.join(snippets)
 
-    def action_generate_report(self):
-        self.ensure_one()
-
-        if self.date_to < self.date_from:
-            raise UserError(_('End date must be greater than or equal to start date.'))
-
-        start_dt, end_dt = self._datetime_bounds()
-
-        lead_domain = [
-            ('create_date', '>=', fields.Datetime.to_string(start_dt)),
-            ('create_date', '<=', fields.Datetime.to_string(end_dt)),
-            ('type', '=', 'lead'),
-        ]
-        if self.team_id:
-            lead_domain.append(('team_id', '=', self.team_id.id))
-        if self.user_id:
-            lead_domain.append(('user_id', '=', self.user_id.id))
-
-        leads = self.env['crm.lead'].with_context(active_test=not self.include_archived).search(lead_domain)
-        if not leads:
-            raise UserError(_('No leads found for the selected filters.'))
-
+    def _build_report_lines(self, leads):
         message_domain = [
             ('model', '=', 'crm.lead'),
             ('res_id', 'in', leads.ids),
@@ -167,11 +146,6 @@ class CrmLeadActivityReportWizard(models.TransientModel):
         messages_by_lead = defaultdict(list)
         for msg in messages:
             messages_by_lead[msg.res_id].append(msg)
-
-        lines_model = self.env['crm.lead.activity.report.line']
-        existing_lines = lines_model.search([('wizard_id', '=', self.id)])
-        if existing_lines:
-            existing_lines.unlink()
 
         now_utc = fields.Datetime.now()
         line_vals = []
@@ -209,7 +183,6 @@ class CrmLeadActivityReportWizard(models.TransientModel):
             lost_reason_name = lead.lost_reason_id.name if lead.lost_reason_id else ''
 
             line_vals.append({
-                'wizard_id': self.id,
                 'lead_id': lead.id,
                 'lead_name': lead.name,
                 'company_name': lead.partner_name,
@@ -238,5 +211,199 @@ class CrmLeadActivityReportWizard(models.TransientModel):
                 'days_since_last_note': days_since_last_note,
             })
 
-        lines_model.create(line_vals)
+        return line_vals
+
+    @api.model
+    def get_dashboard_data(self, date_from=False, date_to=False, team_id=False, user_id=False, include_archived=False):
+        date_from = fields.Date.to_date(date_from) if date_from else fields.Date.context_today(self).replace(day=1)
+        date_to = fields.Date.to_date(date_to) if date_to else fields.Date.context_today(self)
+
+        if date_to < date_from:
+            raise UserError(_('End date must be greater than or equal to start date.'))
+
+        start_dt = datetime.combine(date_from, time.min)
+        end_dt = datetime.combine(date_to, time.max)
+
+        lead_domain = [
+            ('create_date', '>=', fields.Datetime.to_string(start_dt)),
+            ('create_date', '<=', fields.Datetime.to_string(end_dt)),
+            ('type', '=', 'lead'),
+        ]
+        if team_id:
+            lead_domain.append(('team_id', '=', int(team_id)))
+        if user_id:
+            lead_domain.append(('user_id', '=', int(user_id)))
+
+        leads = self.env['crm.lead'].with_context(active_test=not include_archived).search(lead_domain)
+        lines = self._build_report_lines(leads)
+        total = len(lines)
+
+        team_ids = [line['team_id'] for line in lines if line['team_id']]
+        user_ids = [line['user_id'] for line in lines if line['user_id']]
+        stage_ids = [line['stage_id'] for line in lines if line['stage_id']]
+
+        team_map = {x['id']: x['name'] for x in self.env['crm.team'].sudo().search_read([('id', 'in', team_ids)], ['name'])}
+        user_map = {x['id']: x['name'] for x in self.env['res.users'].sudo().search_read([('id', 'in', user_ids)], ['name'])}
+        stage_map = {x['id']: x['name'] for x in self.env['crm.stage'].sudo().search_read([('id', 'in', stage_ids)], ['name'])}
+
+        lines_view = []
+        for line in lines:
+            tags_lower = (line.get('tag_names') or '').lower()
+            is_call_back = 'call back' in tags_lower or 'callback' in tags_lower
+            is_proposal = 'proposal' in tags_lower or 'quotation' in tags_lower
+            actions = []
+            if is_proposal:
+                actions.append('Send Proposal')
+            if is_call_back:
+                actions.append('Call Back')
+            lines_view.append(dict(
+                line,
+                team_name=team_map.get(line['team_id'], ''),
+                user_name=user_map.get(line['user_id'], ''),
+                stage_name=stage_map.get(line['stage_id'], ''),
+                is_call_back=is_call_back,
+                is_proposal=is_proposal,
+                action_labels=actions,
+            ))
+
+        stage_counts = Counter()
+        lost_reason_counts = Counter()
+        by_salesperson = defaultdict(lambda: {
+            'salesperson': '',
+            'assigned': 0,
+            'pct_total': 0,
+            'moved_to_briefed': 0,
+            'pending_activities': 0,
+            'contacted': 0,
+            'lost': 0,
+            'internal_notes': 0,
+        })
+        briefed_by_salesperson = defaultdict(list)
+        lost_by_salesperson = defaultdict(list)
+
+        for line in lines_view:
+            stage_name = line['stage_name'] or 'Undefined Stage'
+            stage_counts[stage_name] += 1
+            if line['lost_reason']:
+                lost_reason_counts[line['lost_reason']] += 1
+
+            salesperson = line['user_name'] or 'Unassigned'
+            by_salesperson[salesperson]['salesperson'] = salesperson
+            by_salesperson[salesperson]['assigned'] += 1
+            by_salesperson[salesperson]['moved_to_briefed'] += 1 if 'brief' in stage_name.lower() else 0
+            by_salesperson[salesperson]['pending_activities'] += 1 if (line['is_call_back'] or line['is_proposal']) else 0
+            by_salesperson[salesperson]['contacted'] += 1 if line['contacted_tag'] else 0
+            by_salesperson[salesperson]['lost'] += 1 if line['lost_reason'] else 0
+            by_salesperson[salesperson]['internal_notes'] += line['internal_note_count']
+
+            if 'brief' in stage_name.lower():
+                briefed_by_salesperson[salesperson].append({
+                    'company': line['company_name'] or line['lead_name'],
+                    'email': line['email_from'] or '-',
+                    'phone': line['phone'] or '-',
+                    'actions': line['action_labels'] or ['-'],
+                    'updated': line['last_note_at'] or line['last_interaction_at'] or line['lead_created_at'],
+                })
+
+            if line['lost_reason']:
+                lost_by_salesperson[salesperson].append({
+                    'company': line['company_name'] or line['lead_name'],
+                    'email': line['email_from'] or '-',
+                    'phone': line['phone'] or '-',
+                    'lost_reason': line['lost_reason'],
+                    'date': line['last_note_at'] or line['last_interaction_at'] or line['lead_created_at'],
+                })
+
+        for key in by_salesperson:
+            by_salesperson[key]['pct_total'] = round((by_salesperson[key]['assigned'] / total) * 100, 1) if total else 0
+
+        stage_rows = []
+        for name, count in stage_counts.most_common():
+            stage_rows.append({
+                'name': name,
+                'count': count,
+                'pct': round((count / total) * 100, 1) if total else 0,
+            })
+
+        lost_rows = []
+        total_lost = sum(1 for line in lines_view if line['lost_reason'])
+        for name, count in lost_reason_counts.most_common():
+            lost_rows.append({
+                'name': name,
+                'count': count,
+                'pct': round((count / total_lost) * 100, 1) if total_lost else 0,
+            })
+
+        observations = [
+            'The team worked on %s leads in the selected period.' % total,
+            'Leads tagged as Contacted: %s.' % sum(1 for line in lines_view if line['contacted_tag']),
+            'Lost leads: %s. Unresolved issues should be reviewed from internal notes.' % total_lost,
+            'Internal log notes captured: %s.' % sum(line['internal_note_count'] for line in lines_view),
+        ]
+
+        return {
+            'filters': {
+                'date_from': fields.Date.to_string(date_from),
+                'date_to': fields.Date.to_string(date_to),
+                'team_id': int(team_id) if team_id else False,
+                'user_id': int(user_id) if user_id else False,
+                'include_archived': bool(include_archived),
+            },
+            'kpis': {
+                'total': total,
+                'worked': sum(1 for l in lines_view if (l['contacted_tag'] or l['lost_reason'] or l['internal_note_count'] > 0)),
+                'untouched': sum(1 for l in lines_view if not (l['contacted_tag'] or l['lost_reason'] or l['internal_note_count'] > 0)),
+                'contacted': sum(1 for l in lines_view if l['contacted_tag']),
+                'moved_to_briefed': sum(1 for l in lines_view if 'brief' in (l['stage_name'] or '').lower()),
+                'call_back': sum(1 for l in lines_view if l['is_call_back']),
+                'proposal_to_send': sum(1 for l in lines_view if l['is_proposal']),
+                'lost': total_lost,
+                'internal_notes': sum(l['internal_note_count'] for l in lines_view),
+            },
+            'stages': stage_rows,
+            'lost_reasons': lost_rows,
+            'by_salesperson': sorted(by_salesperson.values(), key=lambda x: x['assigned'], reverse=True),
+            'briefed_by_salesperson': [
+                {'salesperson': k, 'count': len(v), 'leads': v}
+                for k, v in sorted(briefed_by_salesperson.items(), key=lambda item: len(item[1]), reverse=True)
+            ],
+            'lost_by_salesperson': [
+                {'salesperson': k, 'count': len(v), 'leads': v}
+                for k, v in sorted(lost_by_salesperson.items(), key=lambda item: len(item[1]), reverse=True)
+            ],
+            'observations': observations,
+            'lines': lines_view,
+            'teams': self.env['crm.team'].search_read([], ['name']),
+            'users': self.env['res.users'].search_read([('share', '=', False)], ['name']),
+        }
+
+    def action_generate_report(self):
+        self.ensure_one()
+
+        if self.date_to < self.date_from:
+            raise UserError(_('End date must be greater than or equal to start date.'))
+
+        start_dt, end_dt = self._datetime_bounds()
+
+        lead_domain = [
+            ('create_date', '>=', fields.Datetime.to_string(start_dt)),
+            ('create_date', '<=', fields.Datetime.to_string(end_dt)),
+            ('type', '=', 'lead'),
+        ]
+        if self.team_id:
+            lead_domain.append(('team_id', '=', self.team_id.id))
+        if self.user_id:
+            lead_domain.append(('user_id', '=', self.user_id.id))
+
+        leads = self.env['crm.lead'].with_context(active_test=not self.include_archived).search(lead_domain)
+        if not leads:
+            raise UserError(_('No leads found for the selected filters.'))
+
+        lines_model = self.env['crm.lead.activity.report.line']
+        existing_lines = lines_model.search([('wizard_id', '=', self.id)])
+        if existing_lines:
+            existing_lines.unlink()
+
+        line_vals = self._build_report_lines(leads)
+        lines_model.create([dict(vals, wizard_id=self.id) for vals in line_vals])
         return self.env.ref('crm_lead_activity_report.crm_lead_activity_report_html').report_action(self)

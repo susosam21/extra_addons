@@ -25,6 +25,13 @@ Adds a detailed lead activity report for Odoo 17 Community with:
         'views/crm_lead_activity_report_views.xml',
         'reports/crm_lead_activity_report_templates.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'crm_lead_activity_report/static/src/components/crm_lead_activity_dashboard.js',
+            'crm_lead_activity_report/static/src/components/crm_lead_activity_dashboard.xml',
+            'crm_lead_activity_report/static/src/components/crm_lead_activity_dashboard.css',
+        ],
+    },
     'installable': True,
     'application': False,
     'auto_install': False,
