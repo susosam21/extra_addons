@@ -23,6 +23,7 @@ Adds a detailed lead activity report for Odoo 17 Community with:
     'data': [
         'security/ir.model.access.csv',
         'views/crm_lead_activity_report_views.xml',
+        'reports/crm_lead_activity_report_templates.xml',
     ],
     'installable': True,
     'application': False,

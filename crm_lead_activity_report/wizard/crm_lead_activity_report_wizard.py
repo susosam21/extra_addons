@@ -16,6 +16,11 @@ class CrmLeadActivityReportWizard(models.TransientModel):
     team_id = fields.Many2one(comodel_name='crm.team', string='Sales Team')
     user_id = fields.Many2one(comodel_name='res.users', string='Salesperson')
     include_archived = fields.Boolean(default=False)
+    line_ids = fields.One2many(
+        comodel_name='crm.lead.activity.report.line',
+        inverse_name='wizard_id',
+        readonly=True,
+    )
 
     def _datetime_bounds(self):
         self.ensure_one()
@@ -111,6 +116,25 @@ class CrmLeadActivityReportWizard(models.TransientModel):
             'summary': ' | '.join(summary_parts),
         }
 
+    def _is_internal_note(self, message):
+        mt_note = self.env.ref('mail.mt_note', raise_if_not_found=False)
+        subtype = message.subtype_id
+        return bool(
+            subtype and (
+                subtype.internal
+                or (mt_note and subtype.id == mt_note.id)
+            )
+        )
+
+    def _extract_issue_summary(self, internal_messages):
+        snippets = []
+        for msg in reversed(internal_messages[-3:]):
+            plain = html2plaintext(msg.body or '').strip()
+            if plain:
+                compact = ' '.join(plain.split())
+                snippets.append(compact[:220])
+        return ' | '.join(snippets)
+
     def action_generate_report(self):
         self.ensure_one()
 
@@ -137,8 +161,6 @@ class CrmLeadActivityReportWizard(models.TransientModel):
             ('model', '=', 'crm.lead'),
             ('res_id', 'in', leads.ids),
             ('message_type', 'in', ['comment', 'email']),
-            ('date', '>=', fields.Datetime.to_string(start_dt)),
-            ('date', '<=', fields.Datetime.to_string(end_dt)),
         ]
         messages = self.env['mail.message'].sudo().search(message_domain, order='date asc, id asc')
 
@@ -157,6 +179,8 @@ class CrmLeadActivityReportWizard(models.TransientModel):
         for lead in leads:
             lead_messages = messages_by_lead.get(lead.id, [])
             note_count = len(lead_messages)
+            internal_messages = [msg for msg in lead_messages if self._is_internal_note(msg)]
+            internal_note_count = len(internal_messages)
 
             first_interaction = lead_messages[0].date if lead_messages else False
             last_interaction = lead_messages[-1].date if lead_messages else False
@@ -174,6 +198,16 @@ class CrmLeadActivityReportWizard(models.TransientModel):
                 delta_since = now_utc - fields.Datetime.from_string(last_note_at)
                 days_since_last_note = round(delta_since.total_seconds() / 86400.0, 2)
 
+            tag_names = ', '.join(lead.tag_ids.mapped('name')) if lead.tag_ids else ''
+            contacted_tag = any('contacted' in (tag.name or '').lower() for tag in lead.tag_ids)
+
+            latest_internal_note = ''
+            if internal_messages:
+                latest_internal_note = html2plaintext(internal_messages[-1].body or '').strip()
+
+            issue_summary = self._extract_issue_summary(internal_messages)
+            lost_reason_name = lead.lost_reason_id.name if lead.lost_reason_id else ''
+
             line_vals.append({
                 'wizard_id': self.id,
                 'lead_id': lead.id,
@@ -189,17 +223,20 @@ class CrmLeadActivityReportWizard(models.TransientModel):
                 'last_interaction_at': last_interaction,
                 'last_note_at': last_note_at,
                 'note_count': note_count,
+                'internal_note_count': internal_note_count,
                 'positive_note_count': analysis['positive_count'],
                 'negative_note_count': analysis['negative_count'],
                 'neutral_note_count': analysis['neutral_count'],
                 'note_sentiment': analysis['sentiment'],
+                'contacted_tag': contacted_tag,
+                'tag_names': tag_names,
+                'lost_reason': lost_reason_name,
+                'latest_internal_note': latest_internal_note,
+                'issue_summary': issue_summary,
                 'note_analysis': analysis['summary'],
                 'days_to_first_interaction': days_to_first_interaction,
                 'days_since_last_note': days_since_last_note,
             })
 
         lines_model.create(line_vals)
-
-        action = self.env.ref('crm_lead_activity_report.crm_lead_activity_report_line_action').read()[0]
-        action['domain'] = [('wizard_id', '=', self.id)]
-        return action
+        return self.env.ref('crm_lead_activity_report.crm_lead_activity_report_html').report_action(self)

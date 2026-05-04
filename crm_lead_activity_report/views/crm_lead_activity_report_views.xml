@@ -17,7 +17,7 @@
                     </group>
                 </group>
                 <footer>
-                    <button name="action_generate_report" string="Generate Report" type="object" class="btn-primary"/>
+                    <button name="action_generate_report" string="Generate HTML Report" type="object" class="btn-primary"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

@@ -28,6 +28,7 @@ class CrmLeadActivityReportLine(models.TransientModel):
     last_note_at = fields.Datetime(readonly=True)
 
     note_count = fields.Integer(readonly=True)
+    internal_note_count = fields.Integer(readonly=True)
     positive_note_count = fields.Integer(readonly=True)
     negative_note_count = fields.Integer(readonly=True)
     neutral_note_count = fields.Integer(readonly=True)
@@ -41,6 +42,12 @@ class CrmLeadActivityReportLine(models.TransientModel):
         ],
         readonly=True,
     )
+    contacted_tag = fields.Boolean(readonly=True)
+    tag_names = fields.Char(readonly=True)
+    lost_reason = fields.Char(readonly=True)
+
+    latest_internal_note = fields.Text(readonly=True)
+    issue_summary = fields.Text(readonly=True)
     note_analysis = fields.Text(readonly=True)
 
     days_to_first_interaction = fields.Float(
