@@ -83,9 +83,15 @@
                     <div class="kpi-row kpi-row-4">
                         <div class="kpi-card orange">
                             <div class="kpi-value" t-esc="state.data.kpis.contacted"/>
-                            <div class="kpi-label">Contacted (active)</div>
+                            <div class="kpi-label">Contacted Leads</div>
                             <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.contacted / state.data.kpis.total) * 100)"/>% of total injected</div>
                             <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
+                        </div>
+                        <div class="kpi-card gray">
+                            <div class="kpi-value" t-esc="state.data.kpis.uncontacted"/>
+                            <div class="kpi-label">Not Contacted Yet</div>
+                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.uncontacted / state.data.kpis.total) * 100)"/>% still pending</div>
+                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% still pending</div>
                         </div>
                         <div class="kpi-card amber">
                             <div class="kpi-value" t-esc="state.data.kpis.moved_to_briefed"/>
@@ -99,11 +105,31 @@
                             <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.proposal_to_send / state.data.kpis.total) * 100)"/>% of total injected</div>
                             <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
                         </div>
-                        <div class="kpi-card red">
-                            <div class="kpi-value" t-esc="state.data.kpis.lost"/>
-                            <div class="kpi-label">Lost</div>
-                            <div class="kpi-sub" t-if="state.data.kpis.total"><t t-esc="Math.round((state.data.kpis.lost / state.data.kpis.total) * 100)"/>% of total injected</div>
-                            <div class="kpi-sub" t-if="!state.data.kpis.total">0% of total injected</div>
+                    </div>
+
+                    <div class="section-card">
+                        <h4>Contact and Loss Analytics</h4>
+                        <div class="analytics-grid">
+                            <div class="analytics-item">
+                                <div class="analytics-title">Contact Rate</div>
+                                <div class="analytics-value"><t t-esc="state.data.analytics.contact_rate"/>%</div>
+                            </div>
+                            <div class="analytics-item">
+                                <div class="analytics-title">Loss Rate</div>
+                                <div class="analytics-value"><t t-esc="state.data.analytics.loss_rate"/>%</div>
+                            </div>
+                            <div class="analytics-item">
+                                <div class="analytics-title">Avg Days to 1st Contact</div>
+                                <div class="analytics-value"><t t-esc="state.data.analytics.avg_days_to_contact"/></div>
+                            </div>
+                            <div class="analytics-item">
+                                <div class="analytics-title">Avg Notes per Contacted Lead</div>
+                                <div class="analytics-value"><t t-esc="state.data.analytics.avg_internal_notes_per_contacted"/></div>
+                            </div>
+                            <div class="analytics-item analytics-item-wide">
+                                <div class="analytics-title">Top Lost Reason</div>
+                                <div class="analytics-value"><t t-esc="state.data.analytics.top_lost_reason"/></div>
+                            </div>
                         </div>
                     </div>
 
@@ -145,6 +171,10 @@
                                 <tr>
                                     <th>Salesperson</th>
                                     <th>Assigned</th>
+                                    <th>Contacted</th>
+                                    <th>Contact Rate</th>
+                                    <th>Lost</th>
+                                    <th>Loss Rate</th>
                                     <th>% of Total</th>
                                     <th>Moved to Briefed</th>
                                     <th>Pending Activities</th>
@@ -154,6 +184,10 @@
                                 <tr t-foreach="state.data.by_salesperson" t-as="s" t-key="s.salesperson">
                                     <td><t t-esc="s.salesperson"/></td>
                                     <td><t t-esc="s.assigned"/></td>
+                                    <td><t t-esc="s.contacted"/></td>
+                                    <td><t t-esc="s.contact_rate"/>%</td>
+                                    <td><t t-esc="s.lost"/></td>
+                                    <td><t t-esc="s.loss_rate"/>%</td>
                                     <td><t t-esc="s.pct_total"/>%</td>
                                     <td><t t-esc="s.moved_to_briefed"/></td>
                                     <td><t t-esc="s.pending_activities"/></td>
@@ -204,6 +238,26 @@
                                 </div>
                                 <div class="bar-val"><t t-esc="reason.count"/> (<t t-esc="reason.pct"/>%)</div>
                             </div>
+                        </div>
+                        <div class="table-responsive reason-table-wrap" t-if="state.data.reason_rows.length">
+                            <table class="table table-sm table-striped reason-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Reason</th>
+                                        <th>Lost Leads</th>
+                                        <th>% of Lost</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.data.reason_rows" t-as="r" t-key="r.rank + r.name">
+                                        <td><t t-esc="r.rank"/></td>
+                                        <td><t t-esc="r.name"/></td>
+                                        <td><t t-esc="r.count"/></td>
+                                        <td><t t-esc="r.pct_total_lost"/>%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -273,8 +327,8 @@
                                             <div><strong>Last:</strong> <t t-esc="line.last_interaction_at || '-'"/></div>
                                         </td>
                                         <td>
-                                            <span t-if="line.contacted_tag" class="pill pill-blue">Contacted</span>
-                                            <span t-if="!line.contacted_tag">-</span>
+                                            <span t-if="line.contacted" class="pill pill-blue">Contacted</span>
+                                            <span t-if="!line.contacted">-</span>
                                         </td>
                                         <td>
                                             <span t-if="line.lost_reason" class="pill pill-red"><t t-esc="line.lost_reason"/></span>

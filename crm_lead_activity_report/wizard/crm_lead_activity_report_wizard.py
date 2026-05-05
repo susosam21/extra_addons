@@ -251,6 +251,9 @@ class CrmLeadActivityReportWizard(models.TransientModel):
             tags_lower = (line.get('tag_names') or '').lower()
             is_call_back = 'call back' in tags_lower or 'callback' in tags_lower
             is_proposal = 'proposal' in tags_lower or 'quotation' in tags_lower
+            has_interaction = bool(line.get('first_interaction_at') or line.get('last_interaction_at') or line.get('internal_note_count'))
+            contacted = bool(line.get('contacted_tag') or has_interaction)
+            lost = bool(line.get('lost_reason'))
             actions = []
             if is_proposal:
                 actions.append('Send Proposal')
@@ -263,6 +266,8 @@ class CrmLeadActivityReportWizard(models.TransientModel):
                 stage_name=stage_map.get(line['stage_id'], ''),
                 is_call_back=is_call_back,
                 is_proposal=is_proposal,
+                contacted=contacted,
+                lost=lost,
                 action_labels=actions,
             ))
 
@@ -292,8 +297,8 @@ class CrmLeadActivityReportWizard(models.TransientModel):
             by_salesperson[salesperson]['assigned'] += 1
             by_salesperson[salesperson]['moved_to_briefed'] += 1 if 'brief' in stage_name.lower() else 0
             by_salesperson[salesperson]['pending_activities'] += 1 if (line['is_call_back'] or line['is_proposal']) else 0
-            by_salesperson[salesperson]['contacted'] += 1 if line['contacted_tag'] else 0
-            by_salesperson[salesperson]['lost'] += 1 if line['lost_reason'] else 0
+            by_salesperson[salesperson]['contacted'] += 1 if line['contacted'] else 0
+            by_salesperson[salesperson]['lost'] += 1 if line['lost'] else 0
             by_salesperson[salesperson]['internal_notes'] += line['internal_note_count']
 
             if 'brief' in stage_name.lower():
@@ -316,6 +321,8 @@ class CrmLeadActivityReportWizard(models.TransientModel):
 
         for key in by_salesperson:
             by_salesperson[key]['pct_total'] = round((by_salesperson[key]['assigned'] / total) * 100, 1) if total else 0
+            by_salesperson[key]['contact_rate'] = round((by_salesperson[key]['contacted'] / by_salesperson[key]['assigned']) * 100, 1) if by_salesperson[key]['assigned'] else 0
+            by_salesperson[key]['loss_rate'] = round((by_salesperson[key]['lost'] / by_salesperson[key]['assigned']) * 100, 1) if by_salesperson[key]['assigned'] else 0
 
         stage_rows = []
         for name, count in stage_counts.most_common():
@@ -326,7 +333,17 @@ class CrmLeadActivityReportWizard(models.TransientModel):
             })
 
         lost_rows = []
-        total_lost = sum(1 for line in lines_view if line['lost_reason'])
+        total_lost = sum(1 for line in lines_view if line['lost'])
+        total_contacted = sum(1 for line in lines_view if line['contacted'])
+        total_uncontacted = total - total_contacted
+        avg_days_to_contact = round(
+            sum(line['days_to_first_interaction'] for line in lines_view if line['contacted'] and line['days_to_first_interaction'] >= 0)
+            / max(1, total_contacted),
+            2,
+        ) if total_contacted else 0
+        total_notes = sum(line['internal_note_count'] for line in lines_view)
+        avg_internal_notes_per_contacted = round(total_notes / max(1, total_contacted), 2) if total_contacted else 0
+
         for name, count in lost_reason_counts.most_common():
             lost_rows.append({
                 'name': name,
@@ -334,11 +351,25 @@ class CrmLeadActivityReportWizard(models.TransientModel):
                 'pct': round((count / total_lost) * 100, 1) if total_lost else 0,
             })
 
+        reason_rows = []
+        for idx, (name, count) in enumerate(lost_reason_counts.most_common(), start=1):
+            reason_rows.append({
+                'rank': idx,
+                'name': name,
+                'count': count,
+                'pct_total_lost': round((count / total_lost) * 100, 1) if total_lost else 0,
+            })
+
+        positive_notes = sum(line['positive_note_count'] for line in lines_view)
+        negative_notes = sum(line['negative_note_count'] for line in lines_view)
+        neutral_notes = sum(line['neutral_note_count'] for line in lines_view)
+
         observations = [
             'The team worked on %s leads in the selected period.' % total,
-            'Leads tagged as Contacted: %s.' % sum(1 for line in lines_view if line['contacted_tag']),
+            'Contacted leads: %s (%s%%).' % (total_contacted, round((total_contacted / total) * 100, 1) if total else 0),
             'Lost leads: %s. Unresolved issues should be reviewed from internal notes.' % total_lost,
-            'Internal log notes captured: %s.' % sum(line['internal_note_count'] for line in lines_view),
+            'Top lost reason: %s.' % (reason_rows[0]['name'] if reason_rows else 'No lost reason captured'),
+            'Internal log notes captured: %s.' % total_notes,
         ]
 
         return {
@@ -351,17 +382,29 @@ class CrmLeadActivityReportWizard(models.TransientModel):
             },
             'kpis': {
                 'total': total,
-                'worked': sum(1 for l in lines_view if (l['contacted_tag'] or l['lost_reason'] or l['internal_note_count'] > 0)),
-                'untouched': sum(1 for l in lines_view if not (l['contacted_tag'] or l['lost_reason'] or l['internal_note_count'] > 0)),
-                'contacted': sum(1 for l in lines_view if l['contacted_tag']),
+                'worked': sum(1 for l in lines_view if (l['contacted'] or l['lost'] or l['internal_note_count'] > 0)),
+                'untouched': sum(1 for l in lines_view if not (l['contacted'] or l['lost'] or l['internal_note_count'] > 0)),
+                'contacted': total_contacted,
                 'moved_to_briefed': sum(1 for l in lines_view if 'brief' in (l['stage_name'] or '').lower()),
                 'call_back': sum(1 for l in lines_view if l['is_call_back']),
                 'proposal_to_send': sum(1 for l in lines_view if l['is_proposal']),
                 'lost': total_lost,
-                'internal_notes': sum(l['internal_note_count'] for l in lines_view),
+                'internal_notes': total_notes,
+                'uncontacted': total_uncontacted,
+            },
+            'analytics': {
+                'contact_rate': round((total_contacted / total) * 100, 1) if total else 0,
+                'loss_rate': round((total_lost / total) * 100, 1) if total else 0,
+                'avg_days_to_contact': avg_days_to_contact,
+                'avg_internal_notes_per_contacted': avg_internal_notes_per_contacted,
+                'top_lost_reason': reason_rows[0]['name'] if reason_rows else 'N/A',
+                'positive_notes': positive_notes,
+                'negative_notes': negative_notes,
+                'neutral_notes': neutral_notes,
             },
             'stages': stage_rows,
             'lost_reasons': lost_rows,
+            'reason_rows': reason_rows,
             'by_salesperson': sorted(by_salesperson.values(), key=lambda x: x['assigned'], reverse=True),
             'briefed_by_salesperson': [
                 {'salesperson': k, 'count': len(v), 'leads': v}

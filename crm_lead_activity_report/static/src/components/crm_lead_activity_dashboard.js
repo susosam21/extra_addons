@@ -6,7 +6,9 @@ import { useService } from "@web/core/utils/hooks";
 
 export class CrmLeadActivityDashboard extends Component {
     static template = "crm_lead_activity_report.CrmLeadActivityDashboard";
-    static props = { "*": true };
+    static props = {
+        "*": true, // Accept any props for client action compatibility
+    };
 
     setup() {
         this.orm = useService("orm");
@@ -18,13 +20,18 @@ export class CrmLeadActivityDashboard extends Component {
             userId: false,
             includeArchived: false,
             data: {
-                kpis: { total: 0, contacted: 0, lost: 0, internal_notes: 0 },
+                kpis: { total: 0, worked: 0, untouched: 0, contacted: 0, moved_to_briefed: 0, call_back: 0, proposal_to_send: 0, lost: 0, internal_notes: 0, uncontacted: 0 },
+                analytics: { contact_rate: 0, loss_rate: 0, avg_days_to_contact: 0, avg_internal_notes_per_contacted: 0, top_lost_reason: "N/A", positive_notes: 0, negative_notes: 0, neutral_notes: 0 },
                 stages: [],
                 lost_reasons: [],
+                reason_rows: [],
                 by_salesperson: [],
                 lines: [],
                 teams: [],
                 users: [],
+                briefed_by_salesperson: [],
+                lost_by_salesperson: [],
+                observations: [],
             },
         });
 
@@ -78,17 +85,17 @@ export class CrmLeadActivityDashboard extends Component {
     }
 }
 
-const actionRegistry = registry.category("actions");
-
-// Register both canonical and namespaced tags to avoid client action lookup mismatches.
-try {
-    actionRegistry.add("crm_lead_activity_dashboard_action", CrmLeadActivityDashboard);
-} catch (_e) {
-    // Ignore duplicate-key registration errors.
+// Duplicate-safe registration avoids hard failures when assets are reloaded.
+function safeRegistryAdd(category, key, value) {
+    try {
+        registry.category(category).add(key, value);
+    } catch (_e) {
+        // Ignore duplicate-key errors during asset reloads.
+    }
 }
 
-try {
-    actionRegistry.add("crm_lead_activity_report.crm_lead_activity_dashboard_action", CrmLeadActivityDashboard);
-} catch (_e) {
-    // Ignore duplicate-key registration errors.
-}
+// Register as both widget and client action.
+safeRegistryAdd("view_widgets", "crm_lead_activity_dashboard_widget", CrmLeadActivityDashboard);
+safeRegistryAdd("actions", "crm_lead_activity_dashboard_action", CrmLeadActivityDashboard);
+safeRegistryAdd("actions", "crm_lead_activity_dashboard_custom_action", CrmLeadActivityDashboard);
+safeRegistryAdd("actions", "crm_lead_activity_report.crm_lead_activity_dashboard_action", CrmLeadActivityDashboard);
